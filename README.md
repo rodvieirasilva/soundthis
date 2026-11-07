@@ -53,13 +53,27 @@ http://<YOUR_LAN_IP>:9697
 
 ### CLI Commands
 ```bash
-soundthis status   # View current streaming status and connected clients
-soundthis toggle   # Toggle audio sharing on/off
-soundthis enable   # Enable audio sharing
-soundthis disable  # Disable audio sharing
-soundthis open     # Open client page in default browser
-soundthis serve    # Run streaming server in foreground
+soundthis status      # View current streaming status and connected clients
+soundthis toggle      # Toggle audio sharing on/off
+soundthis enable      # Enable audio sharing
+soundthis disable     # Disable audio sharing
+soundthis open        # Open client page in default browser
+soundthis serve       # Run streaming server in foreground
+soundthis uninstall   # Completely remove plugin and service
 ```
+
+---
+
+## Uninstallation
+
+To completely remove SoundThis from your system:
+
+```bash
+./uninstall.sh
+# or: soundthis uninstall
+```
+
+This safely stops and removes the background service, deletes the Omarchy shell plugin from your bar, and removes installed application files.
 
 ---
 
