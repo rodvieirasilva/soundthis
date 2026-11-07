@@ -1,12 +1,12 @@
 [Unit]
 Description=SoundThis - Real-time Desktop Audio Streaming Server for Omarchy
-After=pipewire.service pipewire-pulse.service
+After=pipewire.service pipewire-pulse.service pulseaudio.service network.target sound.target
 
 [Service]
 Type=simple
-ExecStart=/home/rvs/.local/bin/soundthis serve
+ExecStart=%BIN_PATH% serve
 Restart=always
-RestartSec=3
+RestartSec=2s
 
 [Install]
 WantedBy=default.target

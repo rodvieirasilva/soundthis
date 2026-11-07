@@ -1,3 +1,6 @@
-__pycache__/
-*.pyc
+/target/
+/web/node_modules/
+/web/dist/
 .DS_Store
+*.swp
+*.log
