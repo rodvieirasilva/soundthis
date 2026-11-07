@@ -468,6 +468,45 @@ class SoundThisServer:
                     writer.close()
                     return
 
+            # Favicon routes
+            if path == "/favicon.svg":
+                fav_path = os.path.join(self.web_dir, "favicon.svg")
+                if os.path.isfile(fav_path):
+                    with open(fav_path, "rb") as f:
+                        body = f.read()
+                    resp = (
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: image/svg+xml; charset=utf-8\r\n"
+                        "Cache-Control: public, max-age=86400\r\n"
+                        + cors
+                        + f"Content-Length: {len(body)}\r\n\r\n"
+                    ).encode("utf-8") + body
+                    writer.write(resp)
+                    await writer.drain()
+                    writer.close()
+                    return
+
+            if path == "/favicon.ico":
+                fav_path = os.path.join(self.web_dir, "favicon.ico")
+                content_type = "image/x-icon"
+                if not os.path.isfile(fav_path):
+                    fav_path = os.path.join(self.web_dir, "favicon.svg")
+                    content_type = "image/svg+xml; charset=utf-8"
+                if os.path.isfile(fav_path):
+                    with open(fav_path, "rb") as f:
+                        body = f.read()
+                    resp = (
+                        "HTTP/1.1 200 OK\r\n"
+                        f"Content-Type: {content_type}\r\n"
+                        "Cache-Control: public, max-age=86400\r\n"
+                        + cors
+                        + f"Content-Length: {len(body)}\r\n\r\n"
+                    ).encode("utf-8") + body
+                    writer.write(resp)
+                    await writer.drain()
+                    writer.close()
+                    return
+
             # Fallback 404
             not_found = b"404 Not Found"
             resp = (

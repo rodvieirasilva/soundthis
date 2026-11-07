@@ -27,7 +27,7 @@ chmod +x "$HOME/.local/share/soundthis/server.py"
 cp "$SCRIPT_DIR/uninstall.sh" "$HOME/.local/share/soundthis/uninstall.sh"
 chmod +x "$HOME/.local/share/soundthis/uninstall.sh"
 
-cp "$SCRIPT_DIR/web/index.html" "$HOME/.local/share/soundthis/web/index.html"
+cp -r "$SCRIPT_DIR/web/"* "$HOME/.local/share/soundthis/web/"
 
 # 3. Validate and install Omarchy shell plugin
 echo "[3/5] Validating and installing Omarchy plugin..."
