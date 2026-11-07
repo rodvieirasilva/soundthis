@@ -125,18 +125,22 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    contentWidth: Style.space(340)
-    contentHeight: column.implicitHeight + Style.space(24)
+    focusTarget: panel.loadedContent
+    contentWidth: panel.fittedContentWidth(Style.space(360))
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight)
 
-    content: Item {
+    content: PanelKeyCatcher {
+      id: keyCatcher
       anchors.fill: parent
+      implicitHeight: column.implicitHeight
+      onCloseRequested: root.close()
+      onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
         id: column
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Style.space(12)
         spacing: Style.space(12)
 
         // Header Hero
@@ -145,8 +149,18 @@ Panel {
           meta: !root.serverOnline
             ? "Server offline"
             : (root.serverEnabled ? "Broadcasting live" : "Audio sharing disabled")
-          detail: root.serverOnline ? root.clientUrl : "Port 9697"
+          detail: root.serverOnline ? (":" + root.port) : ""
           foreground: root.foreground
+
+          iconComponent: Component {
+            Text {
+              text: ""
+              textFormat: Text.PlainText
+              font.family: Style.font.family
+              font.pixelSize: Style.font.display
+              color: (root.serverOnline && root.serverEnabled) ? Commons.Color.accent : Qt.darker(root.foreground, 1.5)
+            }
+          }
 
           trailingControl: Component {
             ToggleSwitch {
@@ -157,7 +171,39 @@ Panel {
           }
         }
 
-        PanelSeparator { foreground: root.foreground }
+        // Stream URL pill
+        Rectangle {
+          width: parent.width
+          height: Style.space(30)
+          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+          radius: Style.cornerRadius
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: Style.space(10)
+            anchors.rightMargin: Style.space(10)
+            spacing: Style.space(8)
+
+            Text {
+              text: "󰖟"
+              textFormat: Text.PlainText
+              color: root.serverOnline ? Commons.Color.accent : Qt.darker(root.foreground, 1.5)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: root.serverOnline ? root.clientUrl : "Server offline"
+              textFormat: Text.PlainText
+              color: root.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+              elide: Text.ElideRight
+            }
+          }
+        }
 
         // Action Buttons Row
         RowLayout {
