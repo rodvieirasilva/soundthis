@@ -6,6 +6,15 @@ export default defineConfig({
   plugins: [viteSingleFile()],
   test: {
     environment: "jsdom",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 80,
+      },
+    },
   },
   build: {
     target: "esnext",

@@ -1,3 +1,4 @@
+use crate::config::Protocol;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -18,24 +19,28 @@ pub struct AppState {
     clients: Arc<RwLock<HashMap<String, ClientInfo>>>,
     pub port: u16,
     pub lan_ip: String,
+    pub protocol: Protocol,
 }
 
 #[derive(Serialize)]
 pub struct StatusResponse {
     pub online: bool,
     pub enabled: bool,
+    pub protocol: &'static str,
     pub port: u16,
     pub lan_ip: String,
+    pub url: String,
     pub clients: Vec<ClientInfo>,
 }
 
 impl AppState {
-    pub fn new(port: u16, lan_ip: String) -> Self {
+    pub fn new(port: u16, lan_ip: String, protocol: Protocol) -> Self {
         Self {
             enabled: Arc::new(AtomicBool::new(true)),
             clients: Arc::new(RwLock::new(HashMap::new())),
             port,
             lan_ip,
+            protocol,
         }
     }
 
@@ -75,11 +80,15 @@ impl AppState {
     }
 
     pub async fn to_status_response(&self) -> StatusResponse {
+        let scheme = self.protocol.scheme();
+        let url = format!("{scheme}://{}:{}", self.lan_ip, self.port);
         StatusResponse {
             online: true,
             enabled: self.is_enabled(),
+            protocol: scheme,
             port: self.port,
             lan_ip: self.lan_ip.clone(),
+            url,
             clients: self.get_clients().await,
         }
     }

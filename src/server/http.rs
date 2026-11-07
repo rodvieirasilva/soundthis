@@ -10,37 +10,54 @@ const FAVICON_ICO: &[u8] = include_bytes!("../../web/favicon.ico");
 
 pub fn validate_assets() -> Result<(), crate::error::SoundThisError> {
     if INDEX_HTML.trim().is_empty() {
-        return Err(crate::error::SoundThisError::Network("Embedded index.html is empty".into()));
+        return Err(crate::error::SoundThisError::Network(
+            "Embedded index.html is empty".into(),
+        ));
     }
     if !INDEX_HTML.contains("<!DOCTYPE html>") {
-        return Err(crate::error::SoundThisError::Network("Embedded index.html missing DOCTYPE".into()));
+        return Err(crate::error::SoundThisError::Network(
+            "Embedded index.html missing DOCTYPE".into(),
+        ));
     }
     if FAVICON_SVG.trim().is_empty() {
-        return Err(crate::error::SoundThisError::Network("Embedded favicon.svg is empty".into()));
+        return Err(crate::error::SoundThisError::Network(
+            "Embedded favicon.svg is empty".into(),
+        ));
     }
     if FAVICON_ICO.is_empty() {
-        return Err(crate::error::SoundThisError::Network("Embedded favicon.ico is empty".into()));
+        return Err(crate::error::SoundThisError::Network(
+            "Embedded favicon.ico is empty".into(),
+        ));
     }
     Ok(())
 }
 
 pub async fn handle_index() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))],
+        [(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8"),
+        )],
         INDEX_HTML,
     )
 }
 
 pub async fn handle_favicon_svg() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, HeaderValue::from_static("image/svg+xml"))],
+        [(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("image/svg+xml"),
+        )],
         FAVICON_SVG,
     )
 }
 
 pub async fn handle_favicon_ico() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, HeaderValue::from_static("image/x-icon"))],
+        [(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("image/x-icon"),
+        )],
         FAVICON_ICO,
     )
 }
