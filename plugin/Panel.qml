@@ -102,8 +102,8 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: (root.serverOnline && root.serverEnabled) ? "" : ""
-    opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.45
+    text: ""
+    opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.35
     tooltipText: root.serverOnline
       ? (root.serverEnabled
           ? "SoundThis: Sharing on " + root.clientUrl + (root.clientCount > 0 ? " (" + root.clientCount + " listening)" : "")
