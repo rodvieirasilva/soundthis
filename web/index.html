@@ -329,14 +329,14 @@
       </div>
       <div id="statusBadge" class="status-badge offline">
         <span class="status-dot"></span>
-        <span id="statusText">Offline</span>
+        <span id="statusText">Connecting...</span>
       </div>
     </header>
 
     <main class="card">
       <div class="visualizer-container">
         <canvas id="visualizer"></canvas>
-        <div id="visualizerOverlay" class="visualizer-overlay">Tap "Start Listening" to stream</div>
+        <div id="visualizerOverlay" class="visualizer-overlay">Tap "Start Listening" to play</div>
       </div>
 
       <button id="listenBtn" class="main-btn">
@@ -400,11 +400,12 @@
       }
     });
 
-    // --- Audio Pipeline ---
+    // --- Connection & Playback State ---
     let audioCtx = null;
     let gainNode = null;
     let analyserNode = null;
     let ws = null;
+    let isConnected = false;
     let isListening = false;
     let serverEnabled = true;
     let nextStartTime = 0;
@@ -422,39 +423,47 @@
     const volIconMuted = document.getElementById("volIconMuted");
 
     function updateStatusUI() {
-      if (!isListening) {
+      if (!isConnected) {
         statusBadge.className = "status-badge offline";
-        statusText.textContent = "Ready";
+        statusText.textContent = "Offline";
         visualizerOverlay.style.opacity = "1";
-        visualizerOverlay.textContent = "Tap \"Start Listening\" to stream";
-        listenBtn.className = "main-btn";
-        listenBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Start Listening</span>';
-        return;
-      }
-
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        statusBadge.className = "status-badge offline";
-        statusText.textContent = "Connecting";
-        visualizerOverlay.style.opacity = "1";
-        visualizerOverlay.textContent = "Connecting to SoundThis server...";
-        listenBtn.className = "main-btn listening";
-        listenBtn.innerHTML = '<span>Stop Listening</span>';
+        visualizerOverlay.textContent = "Connecting to host...";
         return;
       }
 
       if (!serverEnabled) {
         statusBadge.className = "status-badge paused";
-        statusText.textContent = "Host Paused";
+        statusText.textContent = "Paused";
         visualizerOverlay.style.opacity = "1";
-        visualizerOverlay.textContent = "SoundThis disabled on host machine";
-        listenBtn.className = "main-btn listening";
-        listenBtn.innerHTML = '<span>Stop Listening</span>';
+        visualizerOverlay.textContent = "Host paused audio sharing";
+        return;
+      }
+
+      // Host is Live & Connected
+      statusBadge.className = "status-badge live";
+      statusText.textContent = "Live";
+
+      if (!isListening) {
+        visualizerOverlay.style.opacity = "1";
+        visualizerOverlay.textContent = 'Tap "Start Listening" to play';
       } else {
-        statusBadge.className = "status-badge live";
-        statusText.textContent = "Live Stream";
         visualizerOverlay.style.opacity = "0";
+      }
+    }
+
+    function updateButtonUI() {
+      if (isListening) {
         listenBtn.className = "main-btn listening";
-        listenBtn.innerHTML = '<span>Stop Listening</span>';
+        listenBtn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <span>Pause Audio</span>
+        `;
+      } else {
+        listenBtn.className = "main-btn";
+        listenBtn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Start Listening</span>
+        `;
       }
     }
 
@@ -486,6 +495,7 @@
       ws.binaryType = "arraybuffer";
 
       ws.onopen = () => {
+        isConnected = true;
         ws.send(JSON.stringify({ type: "identify", name: clientName }));
         updateStatusUI();
       };
@@ -502,7 +512,7 @@
           return;
         }
 
-        // Binary PCM chunk received
+        // Binary PCM chunk received from server
         if (!isListening || !serverEnabled || !audioCtx || audioCtx.state !== "running") return;
 
         const int16 = new Int16Array(event.data);
@@ -537,10 +547,9 @@
       };
 
       ws.onclose = () => {
+        isConnected = false;
         updateStatusUI();
-        if (isListening) {
-          setTimeout(connectWebSocket, 1500);
-        }
+        setTimeout(connectWebSocket, 1500);
       };
 
       ws.onerror = () => {
@@ -548,16 +557,20 @@
       };
     }
 
+    // Connect immediately on page load
+    connectWebSocket();
+    updateStatusUI();
+    updateButtonUI();
+
     listenBtn.addEventListener("click", () => {
       if (isListening) {
         isListening = false;
-        if (ws) ws.close();
-        ws = null;
+        updateButtonUI();
         updateStatusUI();
       } else {
         initAudioContext();
         isListening = true;
-        connectWebSocket();
+        updateButtonUI();
         updateStatusUI();
       }
     });
