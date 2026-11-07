@@ -12,6 +12,9 @@ Panel {
   moduleName: "soundthis"
   ipcTarget: "soundthis"
 
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
+
   property bool serverOnline: false
   property bool serverEnabled: true
   property int clientCount: 0
@@ -99,10 +102,8 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: (root.serverOnline && root.serverEnabled) ? "󰓃" : "󰓄"
-    active: root.serverOnline && root.serverEnabled
-    useActiveColor: true
-    labelText: root.clientCount > 0 ? String(root.clientCount) : ""
+    text: (root.serverOnline && root.serverEnabled) ? "" : ""
+    opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.45
     tooltipText: root.serverOnline
       ? (root.serverEnabled
           ? "SoundThis: Sharing on " + root.clientUrl + (root.clientCount > 0 ? " (" + root.clientCount + " listening)" : "")
