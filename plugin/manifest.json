@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "soundthis",
+  "name": "SoundThis",
+  "version": "1.0.0",
+  "author": "SoundThis",
+  "license": "MIT",
+  "description": "Real-time desktop audio streaming server (like SoundIt for Omarchy).",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "SoundThis",
+    "description": "Share system playback audio in real time over HTTP on port 9697",
+    "category": "Audio",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
