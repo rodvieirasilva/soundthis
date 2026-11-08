@@ -2,7 +2,7 @@
 name = "soundthis"
 version = "0.2.0"
 edition = "2021"
-authors = ["rvs"]
+authors = ["Rodrigo Vieira <rodvieirasilva@gmail.com>"]
 description = "Real-time desktop audio streaming server for Omarchy"
 license = "MIT"
 

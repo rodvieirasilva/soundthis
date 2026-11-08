@@ -23,30 +23,66 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 
 ## Installation
 
-### Via Cargo (Recommended)
+### From GitHub Releases (Fastest — No Compilation Required)
+
+Pre-built standalone Linux x86_64 binaries are published with every release on [GitHub Releases](https://github.com/rodvieirasilva/soundthis/releases).
+
+#### Option A: Quick Install (curl)
+```bash
+# Download latest release, extract binary to ~/.local/bin, and configure service
+curl -sL https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.2.0-x86_64-linux.tar.gz | tar -xz -C ~/.local/bin soundthis
+soundthis install
+```
+
+#### Option B: GitHub CLI (`gh`)
+```bash
+gh release download --repo rodvieirasilva/soundthis --pattern "*.tar.gz"
+tar -xzf soundthis-*-x86_64-linux.tar.gz
+install -m 755 soundthis ~/.local/bin/soundthis
+soundthis install
+```
+
+#### Option C: Manual Download
+1. Download `soundthis-*-x86_64-linux.tar.gz` from the [Releases page](https://github.com/rodvieirasilva/soundthis/releases).
+2. Extract the archive: `tar -xzf soundthis-*.tar.gz`.
+3. Copy the executable to your path: `install -m 755 soundthis ~/.local/bin/soundthis`.
+4. Run `soundthis install` to configure the systemd daemon and Omarchy bar widget.
+
+---
+
+### Via Cargo
+
+```bash
+# Direct install from Git repository:
+cargo install --git https://github.com/rodvieirasilva/soundthis.git
+
+# Or install from local source:
+git clone https://github.com/rodvieirasilva/soundthis.git
+cd soundthis
+cargo install --path .
+
+# Configure systemd daemon and Omarchy bar widget:
+soundthis install
+```
+
+---
+
+### Via Mise (Development & Source Build)
 
 ```bash
 # Clone the repository
 git clone https://github.com/rodvieirasilva/soundthis.git
 cd soundthis
 
-# Build and install binary + setup Omarchy plugin and systemd service
-cargo install --path .
-soundthis install
-```
-
-### Via Mise
-
-```bash
-# Full build and install in one step
+# Build frontend bundle, compile binary, and install everything in one step:
 mise run install
 ```
 
-This will:
-1. Compile the Vite frontend into `web/dist/index.html`.
-2. Compile and install the optimized release binary to `~/.cargo/bin/soundthis`.
-3. Set up and start the systemd user service (`soundthis.service`).
-4. Install and configure the Omarchy shell plugin in `~/.config/omarchy/plugins/soundthis/`.
+`soundthis install` automatically handles:
+1. Installing the binary to your environment.
+2. Generating the systemd user service unit (`soundthis.service`) and starting the background daemon.
+3. Deploying the Omarchy shell plugin to `~/.config/omarchy/plugins/soundthis/`.
+4. Registering the widget into the Omarchy bar layout (`~/.config/omarchy/shell.json`).
 
 ---
 
@@ -169,3 +205,12 @@ mise run fmt             # Automatically format Rust code
   - `services/storage.ts`: Persistent device settings with validation.
   - `services/ws.ts`: Resilient WebSocket connection manager with auto-reconnect.
   - `ui/app.ts`: Application orchestrator and UI event coordinator.
+
+For comprehensive architectural patterns, quality gates, and AI contributor rules, see [AGENTS.md](AGENTS.md).
+
+---
+
+## License
+
+[MIT License](LICENSE) &copy; 2026 Rodrigo Vieira
+
