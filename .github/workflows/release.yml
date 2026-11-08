@@ -51,6 +51,8 @@ jobs:
           cp -r systemd dist/package/
           cp -r plugin dist/package/
           cp -r config dist/package/
+          cp -r docs dist/package/
+          cp AGENTS.md dist/package/
 
           tar -czvf "${ARCHIVE}" -C dist/package .
           sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
