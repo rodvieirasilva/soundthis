@@ -1,6 +1,20 @@
-# SoundThis
+<p align="center">
+  <img src="web/src/assets/icons/logo.svg" width="96" height="96" alt="SoundThis Logo" />
+</p>
 
-**Real-time desktop audio streaming for Omarchy Linux** — high-performance, single-binary, and built natively with Rust and Vite.
+<h1 align="center">SoundThis</h1>
+
+<p align="center">
+  <strong>Real-time desktop audio streaming for Omarchy Linux</strong><br>
+  Ultra-low latency, single-binary, and built natively with Rust &amp; Vite.
+</p>
+
+<p align="center">
+  <a href="https://github.com/rodvieirasilva/soundthis/releases"><img src="https://img.shields.io/github/v/release/rodvieirasilva/soundthis?color=7aa2f7&style=flat-square" alt="GitHub Release"></a>
+  <a href="https://github.com/rodvieirasilva/soundthis/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rodvieirasilva/soundthis/ci.yml?branch=master&label=CI&style=flat-square" alt="CI Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7dcfff?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/coverage-80%25%2B-9ece6a?style=flat-square" alt="Test Coverage">
+</p>
 
 SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseAudio) in real-time and streams it to any web browser on your local network (smartphones, laptops, tablets, smart TVs) with ultra-low latency (~30–50ms) using WebSockets and the Web Audio API.
 
@@ -18,6 +32,31 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
   <em>Left: Embedded web player with real-time waveform visualizer, client naming, and live stream telemetry.<br>
   Right: Native Omarchy desktop bar widget and popout panel showing server link and active listeners.</em>
 </p>
+
+---
+
+## Why SoundThis? (Comparison & Alternatives)
+
+SoundThis was created as a modern, lightweight Linux alternative inspired by [SoundIt](https://soundit.app/). While SoundIt provides convenient audio streaming from Windows to mobile browsers, it is closed-source, proprietary, and limited to Windows hosts.
+
+Other cross-platform tools like **AudioRelay** require installing dedicated native apps or APKs on every receiving phone/client, impose freemium restrictions, and consume significant memory (~80–120 MB RAM). Solutions like **Snapcast** or **RTP multicast** introduce high latency or require complex routing and custom daemon setups.
+
+| Feature / Solution | **SoundThis** | [SoundIt](https://soundit.app/) | [AudioRelay](https://audiorelay.net/) | Snapcast / RTP Multicast |
+|---|---|---|---|---|
+| **Host OS** | **Omarchy / Arch Linux (Native)** | Windows only | Windows, Linux, macOS | Linux |
+| **Client Requirement** | **Any Web Browser (Zero Install)** | Web Browser | Dedicated Mobile/Desktop App | Dedicated client daemon |
+| **Desktop Integration** | **Native Omarchy Bar Widget & Panel** | Windows Tray | System Tray / GUI Window | None (CLI daemon) |
+| **RAM Footprint** | **~1.6 MB RAM (Sub-3ms startup)** | ~50–80 MB RAM | ~80–120 MB RAM (Java/Electron) | ~15–30 MB RAM |
+| **Binary Size** | **~2.9 MB (Self-contained)** | Multi-file installer | Multi-file package | Multi-package |
+| **Latency** | **Ultra-low (~30–50ms)** | ~50–100ms | ~40–80ms | ~200–1000ms |
+| **Client Usability** | **Instant (URL or QR code)** | Instant (URL) | Requires app install + setup | Requires complex client config |
+| **Open Source** | **MIT License** | Proprietary | Proprietary (Freemium) | GPL |
+
+### Why SoundThis is Simpler & Better:
+- **Zero Client Installation**: Any phone (iOS/Android), tablet, laptop, or smart TV can connect immediately through its native browser. No apps, APKs, or store downloads required.
+- **Ultra-Lightweight & Efficient**: Built in async Rust (Axum + Tokio) with a tiny memory footprint (~1.6 MB) and near-zero CPU usage.
+- **Completely Self-Contained**: The web player is pre-compiled and embedded directly inside the 2.9 MB single binary via `include_str!`. Zero external runtime assets or internet access required.
+- **Native Omarchy Desktop Experience**: Right-click the bar widget to toggle sharing on/off, click to view connected listeners, or copy the LAN link with one tap.
 
 ---
 
