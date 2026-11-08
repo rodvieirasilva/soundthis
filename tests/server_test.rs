@@ -170,6 +170,10 @@ fn test_config_load_or_create_file() {
     let cfg = ServerConfig::load_or_create(Some(&cfg_path)).unwrap();
     assert_eq!(cfg.port, 9697);
 
+    // Default path when explicit_path is None
+    let default_cfg = ServerConfig::load_or_create(None);
+    assert!(default_cfg.is_ok());
+
     // Write corrupted TOML
     std::fs::write(&cfg_path, "invalid [[ toml syntax").unwrap();
     let err = ServerConfig::load_or_create(Some(&cfg_path));
@@ -205,11 +209,36 @@ fn test_cli_parsing() {
     } else {
         panic!("Expected Serve subcommand");
     }
+
+    let c1 = Cli::parse_from(["soundthis", "enable"]);
+    assert!(matches!(c1.command, Some(soundthis::cli::Commands::Enable)));
+    let c2 = Cli::parse_from(["soundthis", "disable"]);
+    assert!(matches!(
+        c2.command,
+        Some(soundthis::cli::Commands::Disable)
+    ));
+    let c3 = Cli::parse_from(["soundthis", "open"]);
+    assert!(matches!(c3.command, Some(soundthis::cli::Commands::Open)));
+    let c4 = Cli::parse_from(["soundthis", "toggle"]);
+    assert!(matches!(c4.command, Some(soundthis::cli::Commands::Toggle)));
+    let c5 = Cli::parse_from(["soundthis", "install"]);
+    assert!(matches!(
+        c5.command,
+        Some(soundthis::cli::Commands::Install)
+    ));
+    let c6 = Cli::parse_from(["soundthis", "uninstall"]);
+    assert!(matches!(
+        c6.command,
+        Some(soundthis::cli::Commands::Uninstall)
+    ));
 }
 
 #[test]
 fn test_template_and_asset_validations() {
-    // Verify external template validation
+    // Verify external config template validation
+    assert!(ServerConfig::validate_template().is_ok());
+
+    // Verify external installer templates validation
     assert!(soundthis::installer::Installer::validate_templates().is_ok());
 
     // Verify external asset validation
