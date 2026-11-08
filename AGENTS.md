@@ -165,4 +165,3 @@ Before declaring any task or ticket complete, execute this checklist:
 2. `mise run test` passes **100% of Rust and Vitest tests**.
 3. `mise run coverage` verifies both Rust and Web suites remain **>= 80%**.
 4. Any new templates, icons, or configurations are created as **external files**, not embedded string constants.
-5. All commits have author/committer set to `Rodrigo Vieira <rodvieirasilva@gmail.com>`.
