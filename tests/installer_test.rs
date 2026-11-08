@@ -43,7 +43,7 @@ fn test_installer_install_and_uninstall_lifecycle() {
         serde_json::from_str(&std::fs::read_to_string(shell_dir.join("shell.json")).unwrap())
             .unwrap();
     let right_list = updated_shell["bar"]["layout"]["right"].as_array().unwrap();
-    assert!(right_list.contains(&serde_json::Value::String("soundthis".into())));
+    assert!(right_list.contains(&serde_json::json!({ "id": "soundthis" })));
 
     // Running install_to again should be idempotent
     assert!(Installer::install_to(&temp_dir, &fake_bin, false).is_ok());
@@ -59,7 +59,10 @@ fn test_installer_install_and_uninstall_lifecycle() {
     let right_list = uninstalled_shell["bar"]["layout"]["right"]
         .as_array()
         .unwrap();
-    assert!(!right_list.contains(&serde_json::Value::String("soundthis".into())));
+    assert!(!right_list.iter().any(|item| {
+        item.as_str() == Some("soundthis")
+            || item.get("id").and_then(|v| v.as_str()) == Some("soundthis")
+    }));
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }

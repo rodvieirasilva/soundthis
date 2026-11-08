@@ -123,8 +123,12 @@ impl Installer {
                         .and_then(|l| l.get_mut("right"))
                         .and_then(|r| r.as_array_mut())
                     {
-                        let soundthis_val = serde_json::Value::String("soundthis".into());
-                        if !right_layout.contains(&soundthis_val) {
+                        let already_exists = right_layout.iter().any(|item| {
+                            item.as_str() == Some("soundthis")
+                                || item.get("id").and_then(|v| v.as_str()) == Some("soundthis")
+                        });
+                        if !already_exists {
+                            let soundthis_val = serde_json::json!({ "id": "soundthis" });
                             right_layout.insert(0, soundthis_val);
                             if let Ok(updated) = serde_json::to_string_pretty(&json) {
                                 let _ = fs::write(&shell_config_file, updated);
@@ -186,7 +190,10 @@ impl Installer {
                         .and_then(|l| l.get_mut("right"))
                         .and_then(|r| r.as_array_mut())
                     {
-                        right_layout.retain(|item| item.as_str() != Some("soundthis"));
+                        right_layout.retain(|item| {
+                            item.as_str() != Some("soundthis")
+                                && item.get("id").and_then(|v| v.as_str()) != Some("soundthis")
+                        });
                         if let Ok(updated) = serde_json::to_string_pretty(&json) {
                             let _ = fs::write(&shell_config_file, updated);
                             info!("Removed soundthis widget from shell.json");
