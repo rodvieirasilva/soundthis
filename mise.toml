@@ -1,0 +1,60 @@
+[tools]
+rust = "1.99.1"
+node = "26.13.0"
+
+[tasks."build:web"]
+description = "Compile the Vite frontend into web/dist/index.html"
+dir = "web"
+run = "npm run build"
+
+[tasks."build:rust"]
+description = "Compile the optimized Rust release binary"
+depends = ["build:web"]
+run = "cargo build --release"
+
+[tasks.build]
+description = "Build web bundle and release binary"
+depends = ["build:web", "build:rust"]
+
+[tasks."dev:web"]
+description = "Run Vite development server"
+dir = "web"
+run = "npm run dev"
+
+[tasks.dev]
+description = "Run soundthis in dev mode with cargo"
+run = "cargo run -- serve"
+
+[tasks."test:web"]
+description = "Run frontend unit tests with vitest"
+dir = "web"
+run = "npm test"
+
+[tasks."test:server"]
+description = "Run Rust unit and integration tests"
+run = "cargo test"
+
+[tasks.test]
+description = "Run all web and server tests"
+depends = ["test:web", "test:server"]
+
+[tasks.install]
+description = "Build and install binary, systemd user daemon, and Omarchy plugin"
+depends = ["build"]
+run = "cargo install --path . --force && soundthis install"
+
+[tasks.uninstall]
+description = "Stop daemon and cleanly remove Omarchy plugin and binary registration"
+run = "soundthis uninstall"
+
+[tasks.status]
+description = "Check status of the running soundthis server"
+run = "soundthis status"
+
+[tasks.toggle]
+description = "Toggle audio streaming on/off"
+run = "soundthis toggle"
+
+[tasks.open]
+description = "Open the web player in the default browser"
+run = "soundthis open"

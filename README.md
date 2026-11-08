@@ -1,36 +1,49 @@
 # SoundThis
 
-**Real-time desktop audio streaming for Omarchy Linux** — like SoundIt, but minimal, native, and built for Omarchy.
+**Real-time desktop audio streaming for Omarchy Linux** — high-performance, single-binary, and built natively with Rust and Vite.
 
-SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseAudio) in real-time and streams it to any web browser on your local network (smartphones, laptops, tablets, smart TVs) with ultra-low latency (~30–50ms) using Web Audio API and WebSockets.
+SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseAudio) in real-time and streams it to any web browser on your local network (smartphones, laptops, tablets, smart TVs) with ultra-low latency (~30–50ms) using WebSockets and the Web Audio API.
 
 ---
 
-## Features
+## Highlights
 
-- **Omarchy Shell Integration**: Native bar widget with live broadcast status, client count, and an interactive popout panel.
+- **Native Rust Server**: Axum + Tokio async WebSocket broadcast server with minimal memory footprint (~1.6 MB RAM) and sub-3ms startup.
+- **Embedded Vite Web Client**: Single-file bundled frontend (`TypeScript` + `Vite` + `AudioContext`), compiled and embedded directly inside the 2.9 MB executable. Zero external runtime assets needed.
+- **Omarchy Shell Integration**: Native bar widget (`KeyboardPanel` + `BarIconButton`) with live broadcast status, client count, and an interactive popout panel.
 - **Enabled / Disabled Control**: Toggle audio sharing on and off directly from the Omarchy bar (right-click to toggle, or use the switch in the panel).
-- **Ultra-Low Latency (~30–50ms)**: Uses raw 48kHz 16-bit stereo PCM streaming directly into browser Web Audio API jitter buffers — no transcoding lag.
-- **Device Identification**: Clients can customize their device name in the browser, which is stored in `localStorage` and visible on the host desktop.
-- **Universal Browser Support**: Works out of the box on mobile Safari (iOS), Chrome (Android/Desktop), Firefox, and Edge.
-- **Open Access**: Supports HTTP with all origins (`Access-Control-Allow-Origin: *`) on port **9697**.
-- **Zero Heavy Dependencies**: Pure Python 3 async backend using standard library and PipeWire monitor capture.
+- **Ultra-Low Latency (~30–50ms)**: Streams 48kHz 16-bit stereo PCM with scheduled jitter buffers.
+- **Device Identification**: Clients can customize their device name in the browser, stored in `localStorage` and visible on the host desktop.
+- **Mise & Cargo Distribution**: Managed with `mise.toml` and standard `cargo install`.
 
 ---
 
 ## Installation
 
-Run the installer from this repository:
+### Via Cargo (Recommended)
 
 ```bash
-./install.sh
+# Clone the repository
+git clone https://github.com/soundthis/soundthis.git
+cd soundthis
+
+# Build and install binary + setup Omarchy plugin and systemd service
+cargo install --path .
+soundthis install
+```
+
+### Via Mise
+
+```bash
+# Full build and install in one step
+mise run install
 ```
 
 This will:
-1. Install `soundthis` to `~/.local/bin/soundthis`.
-2. Install the Omarchy shell plugin to `~/.config/omarchy/plugins/soundthis/`.
-3. Enable the widget in your Omarchy bar (`--section right`).
-4. Enable and start the systemd user service (`soundthis.service`).
+1. Compile the Vite frontend into `web/dist/index.html`.
+2. Compile and install the optimized release binary to `~/.cargo/bin/soundthis`.
+3. Set up and start the systemd user service (`soundthis.service`).
+4. Install and configure the Omarchy shell plugin in `~/.config/omarchy/plugins/soundthis/`.
 
 ---
 
@@ -42,10 +55,7 @@ Open the streaming page on any device connected to your network:
 ```
 http://<YOUR_LAN_IP>:9697
 ```
-(Or on the host machine: `http://localhost:9697`)
-
-1. Tap **Start Listening**.
-2. Customize your device name (e.g. "Living Room TV", "iPhone"). It automatically persists in local storage!
+*(Shown in `soundthis status` and in the Omarchy bar popout)*
 
 ### Omarchy Bar Widget
 - **Left Click**: Opens the SoundThis control panel showing LAN link, connected listeners, and controls.
@@ -53,33 +63,39 @@ http://<YOUR_LAN_IP>:9697
 
 ### CLI Commands
 ```bash
-soundthis status      # View current streaming status and connected clients
+soundthis status      # View streaming status and connected clients
 soundthis toggle      # Toggle audio sharing on/off
 soundthis enable      # Enable audio sharing
 soundthis disable     # Disable audio sharing
 soundthis open        # Open client page in default browser
 soundthis serve       # Run streaming server in foreground
+soundthis install     # Configure systemd daemon and Omarchy bar
 soundthis uninstall   # Completely remove plugin and service
 ```
 
 ---
 
-## Uninstallation
+## Development & Testing with Mise
 
-To completely remove SoundThis from your system:
+The project includes a comprehensive `mise.toml` workflow:
 
 ```bash
-./uninstall.sh
-# or: soundthis uninstall
+mise run dev          # Run server in debug mode with Cargo
+mise run dev:web      # Run Vite dev server with hot module reloading
+mise run build        # Build web bundle and optimized release binary
+mise run test         # Run both web (Vitest) and server (Cargo) test suites
+mise run test:web     # Run frontend tests
+mise run test:server  # Run Rust unit and integration tests
 ```
-
-This safely stops and removes the background service, deletes the Omarchy shell plugin from your bar, and removes installed application files.
 
 ---
 
-## Architecture
+## Architecture (SOLID Principles)
 
-- **Capture**: `parec -r -d @DEFAULT_MONITOR@ --rate=48000 --format=s16le --channels=2 --latency-msec=20`
-- **Transport**: WebSockets with binary RFC 6455 frames (and chunked HTTP at `/stream.wav`).
-- **Playback**: Web Audio API (`AudioContext`) with scheduled jitter buffer and dynamic resampling.
-- **Shell Plugin**: Built with Quickshell, `BarIconButton`, and `KeyboardPanel` following Omarchy design tokens.
+- **`src/audio/`**:
+  - `source.rs`: `AudioSource` trait defining pluggable audio capture backends (`ParecAudioSource` for PipeWire/PulseAudio).
+  - `broadcaster.rs`: `AudioBroadcaster` fan-out channel with low-latency frame dropping for lagged clients.
+- **`src/state.rs`**: Thread-safe `AppState` managing active connections and streaming toggles.
+- **`src/server/`**: Axum HTTP and WebSocket handlers serving embedded assets and binary PCM streams.
+- **`src/installer/`**: Validates external templates (`systemd/soundthis.service.template`, `plugin/`) and manages systemd and Omarchy shell registration.
+- **`web/`**: TypeScript + Vite client with `AudioStreamPlayer`, `CanvasVisualizer`, and `ClientConfigStore`.
