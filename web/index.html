@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SoundThis — Live Desktop Audio</title>
+  <style>
+    :root {
+      --bg: #0c0e14;
+      --card-bg: #151922;
+      --card-border: #232a3b;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --green: #22c55e;
+      --green-glow: rgba(34, 197, 94, 0.4);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.4);
+      --red: #ef4444;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .brand-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #fff;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      transition: all 0.25s ease;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-badge.live {
+      border-color: rgba(34, 197, 94, 0.4);
+      background: rgba(34, 197, 94, 0.1);
+      color: #4ade80;
+    }
+    .status-badge.live .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green-glow);
+      animation: pulse 1.8s infinite;
+    }
+
+    .status-badge.paused {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+    }
+    .status-badge.paused .status-dot {
+      background: var(--amber);
+    }
+
+    .status-badge.offline {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+    }
+    .status-badge.offline .status-dot {
+      background: var(--red);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .visualizer-container {
+      width: 100%;
+      height: 100px;
+      background: #0d1017;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .visualizer-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+      background: rgba(13, 16, 23, 0.7);
+      transition: opacity 0.3s;
+    }
+
+    .main-btn {
+      width: 100%;
+      height: 56px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      background: linear-gradient(135deg, var(--accent), #2563eb);
+      color: #fff;
+      box-shadow: 0 4px 18px var(--accent-glow);
+    }
+
+    .main-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px var(--accent-glow);
+    }
+
+    .main-btn:active {
+      transform: translateY(1px);
+    }
+
+    .main-btn.listening {
+      background: #1e2433;
+      border: 1px solid var(--card-border);
+      color: #e2e8f0;
+      box-shadow: none;
+    }
+
+    .main-btn.listening:hover {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: #4ade80;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .field-hint.show {
+      opacity: 1;
+    }
+
+    .text-input {
+      background: #0d1017;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-main);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+    }
+
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: #0d1017;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .icon-btn:hover {
+      color: var(--text-main);
+      border-color: var(--accent);
+    }
+
+    .icon-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      height: 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .meta-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+
+    .meta-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        </div>
+        <div class="brand-title">SoundThis</div>
+      </div>
+      <div id="statusBadge" class="status-badge offline">
+        <span class="status-dot"></span>
+        <span id="statusText">Offline</span>
+      </div>
+    </header>
+
+    <main class="card">
+      <div class="visualizer-container">
+        <canvas id="visualizer"></canvas>
+        <div id="visualizerOverlay" class="visualizer-overlay">Tap "Start Listening" to stream</div>
+      </div>
+
+      <button id="listenBtn" class="main-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <span>Start Listening</span>
+      </button>
+
+      <div class="field-group">
+        <div class="field-label">
+          <span>Client Name</span>
+          <span id="savedHint" class="field-hint">✓ Saved in local storage</span>
+        </div>
+        <input id="clientNameInput" type="text" class="text-input" placeholder="Name your device (e.g. Phone, Living Room)" maxlength="40">
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">
+          <span>Volume</span>
+          <span id="volPercent" class="meta-tag">100%</span>
+        </div>
+        <div class="volume-row">
+          <button id="muteBtn" class="icon-btn" title="Mute/Unmute">
+            <svg id="volIconHigh" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="volIconMuted" style="display:none;" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          </button>
+          <input id="volSlider" type="range" min="0" max="1" step="0.01" value="1">
+        </div>
+      </div>
+    </main>
+
+    <footer class="meta-footer">
+      <span class="meta-tag">48kHz • 16-bit PCM • Real-time</span>
+      <span id="latencyTag" class="meta-tag">~30ms latency</span>
+    </footer>
+  </div>
+
+  <script>
+    // --- Local storage for Client Name ---
+    const STORAGE_KEY = "soundthis_client_name";
+    const nameInput = document.getElementById("clientNameInput");
+    const savedHint = document.getElementById("savedHint");
+
+    let clientName = localStorage.getItem(STORAGE_KEY);
+    if (!clientName) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      clientName = isMobile ? (navigator.userAgent.includes("Android") ? "Android Phone" : "Apple Device") : "Web Browser";
+      localStorage.setItem(STORAGE_KEY, clientName);
+    }
+    nameInput.value = clientName;
+
+    let hintTimer = null;
+    nameInput.addEventListener("input", (e) => {
+      clientName = e.target.value.trim() || "Anonymous";
+      localStorage.setItem(STORAGE_KEY, clientName);
+      savedHint.classList.add("show");
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => savedHint.classList.remove("show"), 1500);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "setName", name: clientName }));
+      }
+    });
+
+    // --- Audio Pipeline ---
+    let audioCtx = null;
+    let gainNode = null;
+    let analyserNode = null;
+    let ws = null;
+    let isListening = false;
+    let serverEnabled = true;
+    let nextStartTime = 0;
+    const SAMPLE_RATE = 48000;
+    const CHANNELS = 2;
+
+    const statusBadge = document.getElementById("statusBadge");
+    const statusText = document.getElementById("statusText");
+    const listenBtn = document.getElementById("listenBtn");
+    const visualizerOverlay = document.getElementById("visualizerOverlay");
+    const volSlider = document.getElementById("volSlider");
+    const volPercent = document.getElementById("volPercent");
+    const muteBtn = document.getElementById("muteBtn");
+    const volIconHigh = document.getElementById("volIconHigh");
+    const volIconMuted = document.getElementById("volIconMuted");
+
+    function updateStatusUI() {
+      if (!isListening) {
+        statusBadge.className = "status-badge offline";
+        statusText.textContent = "Ready";
+        visualizerOverlay.style.opacity = "1";
+        visualizerOverlay.textContent = "Tap \"Start Listening\" to stream";
+        listenBtn.className = "main-btn";
+        listenBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Start Listening</span>';
+        return;
+      }
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        statusBadge.className = "status-badge offline";
+        statusText.textContent = "Connecting";
+        visualizerOverlay.style.opacity = "1";
+        visualizerOverlay.textContent = "Connecting to SoundThis server...";
+        listenBtn.className = "main-btn listening";
+        listenBtn.innerHTML = '<span>Stop Listening</span>';
+        return;
+      }
+
+      if (!serverEnabled) {
+        statusBadge.className = "status-badge paused";
+        statusText.textContent = "Host Paused";
+        visualizerOverlay.style.opacity = "1";
+        visualizerOverlay.textContent = "SoundThis disabled on host machine";
+        listenBtn.className = "main-btn listening";
+        listenBtn.innerHTML = '<span>Stop Listening</span>';
+      } else {
+        statusBadge.className = "status-badge live";
+        statusText.textContent = "Live Stream";
+        visualizerOverlay.style.opacity = "0";
+        listenBtn.className = "main-btn listening";
+        listenBtn.innerHTML = '<span>Stop Listening</span>';
+      }
+    }
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = parseFloat(volSlider.value);
+
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 64;
+        analyserNode.smoothingTimeConstant = 0.8;
+
+        gainNode.connect(analyserNode);
+        analyserNode.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function connectWebSocket() {
+      const loc = window.location;
+      const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${proto}//${loc.host}/ws`;
+
+      ws = new WebSocket(wsUrl);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: "identify", name: clientName }));
+        updateStatusUI();
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "status") {
+              serverEnabled = !!data.enabled;
+              updateStatusUI();
+            }
+          } catch (e) {}
+          return;
+        }
+
+        // Binary PCM chunk received
+        if (!isListening || !serverEnabled || !audioCtx || audioCtx.state !== "running") return;
+
+        const int16 = new Int16Array(event.data);
+        const numFrames = int16.length / CHANNELS;
+        if (numFrames === 0) return;
+
+        const buffer = audioCtx.createBuffer(CHANNELS, numFrames, SAMPLE_RATE);
+        const left = buffer.getChannelData(0);
+        const right = buffer.getChannelData(1);
+
+        for (let i = 0; i < numFrames; i++) {
+          left[i] = int16[i * 2] / 32768.0;
+          right[i] = int16[i * 2 + 1] / 32768.0;
+        }
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gainNode);
+
+        const cur = audioCtx.currentTime;
+        const targetBufferAhead = 0.035; // 35ms safety jitter buffer
+
+        if (nextStartTime < cur) {
+          nextStartTime = cur + targetBufferAhead;
+        }
+        if (nextStartTime > cur + 0.2) {
+          nextStartTime = cur + targetBufferAhead;
+        }
+
+        source.start(nextStartTime);
+        nextStartTime += buffer.duration;
+      };
+
+      ws.onclose = () => {
+        updateStatusUI();
+        if (isListening) {
+          setTimeout(connectWebSocket, 1500);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    listenBtn.addEventListener("click", () => {
+      if (isListening) {
+        isListening = false;
+        if (ws) ws.close();
+        ws = null;
+        updateStatusUI();
+      } else {
+        initAudioContext();
+        isListening = true;
+        connectWebSocket();
+        updateStatusUI();
+      }
+    });
+
+    // Volume & Mute Controls
+    let lastVolume = 1.0;
+    volSlider.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      if (gainNode) gainNode.gain.value = val;
+      volPercent.textContent = Math.round(val * 100) + "%";
+      if (val === 0) {
+        volIconHigh.style.display = "none";
+        volIconMuted.style.display = "block";
+      } else {
+        volIconHigh.style.display = "block";
+        volIconMuted.style.display = "none";
+      }
+    });
+
+    muteBtn.addEventListener("click", () => {
+      if (parseFloat(volSlider.value) > 0) {
+        lastVolume = parseFloat(volSlider.value);
+        volSlider.value = 0;
+      } else {
+        volSlider.value = lastVolume || 1.0;
+      }
+      volSlider.dispatchEvent(new Event("input"));
+    });
+
+    // Visualizer Canvas
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth * window.devicePixelRatio;
+      canvas.height = canvas.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function drawVisualizer() {
+      requestAnimationFrame(drawVisualizer);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!analyserNode || !isListening || !serverEnabled) {
+        // Draw idle line
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.lineWidth = 2 * window.devicePixelRatio;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+        return;
+      }
+
+      const bufferLength = analyserNode.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyserNode.getByteFrequencyData(dataArray);
+
+      const barWidth = (canvas.width / bufferLength) * 2.2;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+        const grad = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        grad.addColorStop(0, "rgba(56, 189, 248, 0.2)");
+        grad.addColorStop(0.7, "rgba(56, 189, 248, 0.8)");
+        grad.addColorStop(1, "#38bdf8");
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - (2 * window.devicePixelRatio), barHeight);
+        x += barWidth;
+      }
+    }
+    drawVisualizer();
+  </script>
+</body>
+</html>
