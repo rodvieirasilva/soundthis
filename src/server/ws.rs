@@ -85,10 +85,13 @@ async fn handle_ws_session(
             audio_result = audio_rx.recv() => {
                 match audio_result {
                     Ok(chunk) => {
-                        if state.is_enabled() {
-                            if socket.send(Message::Binary((*chunk).clone().into())).await.is_err() {
-                                break;
-                            }
+                        if state.is_enabled()
+                            && socket
+                                .send(Message::Binary((*chunk).clone().into()))
+                                .await
+                                .is_err()
+                        {
+                            break;
                         }
                     }
                     Err(RecvError::Lagged(n)) => {

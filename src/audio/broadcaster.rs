@@ -10,6 +10,12 @@ pub struct AudioBroadcaster {
     sender: broadcast::Sender<Arc<Vec<u8>>>,
 }
 
+impl Default for AudioBroadcaster {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioBroadcaster {
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(BROADCAST_CAPACITY);
@@ -55,5 +61,43 @@ impl AudioBroadcaster {
         });
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audio::source::MockAudioSource;
+    use crate::config::Protocol;
+
+    #[tokio::test]
+    async fn test_broadcaster_with_mock_source() {
+        let broadcaster = AudioBroadcaster::default();
+        let state = AppState::new(9697, "127.0.0.1".into(), Protocol::Http);
+
+        let mut sub = broadcaster.subscribe();
+        let mock_chunks = vec![vec![10, 20, 30], vec![40, 50, 60]];
+        let source = MockAudioSource::new(mock_chunks);
+
+        assert!(broadcaster
+            .start_broadcasting(source, state.clone())
+            .is_ok());
+
+        let chunk1 = tokio::time::timeout(tokio::time::Duration::from_millis(200), sub.recv())
+            .await
+            .expect("Timeout waiting for chunk 1")
+            .expect("Recv error");
+        assert_eq!(*chunk1, vec![10, 20, 30]);
+
+        let chunk2 = tokio::time::timeout(tokio::time::Duration::from_millis(200), sub.recv())
+            .await
+            .expect("Timeout waiting for chunk 2")
+            .expect("Recv error");
+        assert_eq!(*chunk2, vec![40, 50, 60]);
+
+        // Broadcast manual chunk
+        broadcaster.broadcast_chunk(Arc::new(vec![99]));
+        let chunk3 = sub.recv().await.unwrap();
+        assert_eq!(*chunk3, vec![99]);
     }
 }

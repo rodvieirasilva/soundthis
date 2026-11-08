@@ -1,6 +1,25 @@
-/target/
-/web/node_modules/
-/web/dist/
+# Rust build artifacts
+target/
+
+# Web artifacts & dependencies
+web/node_modules/
+web/dist/
+web/coverage/
+coverage/
+
+# Test coverage artifacts
+*.profraw
+*.profdata
+lcov.info
+
+# TLS Certificates and private keys
+*.pem
+*.key
+*.crt
+
+# IDE and OS files
 .DS_Store
 *.swp
 *.log
+.vscode/
+.idea/

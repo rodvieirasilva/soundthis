@@ -38,6 +38,36 @@ run = "cargo test"
 description = "Run all web and server tests"
 depends = ["test:web", "test:server"]
 
+[tasks."coverage:web"]
+description = "Run frontend Vitest coverage (threshold >= 80%)"
+dir = "web"
+run = "npm run test:coverage"
+
+[tasks."coverage:rust"]
+description = "Run Rust cargo-llvm-cov coverage summary"
+run = "cargo llvm-cov --summary-only"
+
+[tasks.coverage]
+description = "Run complete test coverage for frontend and backend"
+depends = ["coverage:web", "coverage:rust"]
+
+[tasks."lint:rust"]
+description = "Run cargo clippy and rustfmt checks"
+run = "cargo fmt --check && cargo clippy --all-targets -- -D warnings"
+
+[tasks."lint:web"]
+description = "Run ESLint checks on frontend TypeScript code"
+dir = "web"
+run = "npm run lint"
+
+[tasks.lint]
+description = "Run all linters for Rust and TypeScript"
+depends = ["lint:rust", "lint:web"]
+
+[tasks.fmt]
+description = "Format Rust and web code"
+run = "cargo fmt"
+
 [tasks.install]
 description = "Build and install binary, systemd user daemon, and Omarchy plugin"
 depends = ["build"]

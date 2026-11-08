@@ -2,14 +2,14 @@ pub mod systemd;
 
 use crate::error::SoundThisError;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use systemd::SystemdManager;
 use tracing::info;
 
-const PLUGIN_MANIFEST: &str = include_str!("../../plugin/manifest.json");
-const PLUGIN_PANEL_QML: &str = include_str!("../../plugin/Panel.qml");
-const SERVICE_TEMPLATE: &str = include_str!("../../systemd/soundthis.service.template");
+pub const PLUGIN_MANIFEST: &str = include_str!("../../plugin/manifest.json");
+pub const PLUGIN_PANEL_QML: &str = include_str!("../../plugin/Panel.qml");
+pub const SERVICE_TEMPLATE: &str = include_str!("../../systemd/soundthis.service.template");
 
 pub struct Installer;
 
@@ -31,8 +31,9 @@ impl Installer {
         }
 
         // Validate plugin manifest
-        let manifest: serde_json::Value = serde_json::from_str(PLUGIN_MANIFEST)
-            .map_err(|e| SoundThisError::Installer(format!("Plugin manifest is not valid JSON: {e}")))?;
+        let manifest: serde_json::Value = serde_json::from_str(PLUGIN_MANIFEST).map_err(|e| {
+            SoundThisError::Installer(format!("Plugin manifest is not valid JSON: {e}"))
+        })?;
         if manifest.get("id").and_then(|v| v.as_str()) != Some("soundthis") {
             return Err(SoundThisError::Installer(
                 "Plugin manifest does not define id 'soundthis'".into(),
@@ -49,11 +50,13 @@ impl Installer {
         Ok(())
     }
 
-    fn home_dir() -> PathBuf {
-        dirs_home().unwrap_or_else(|| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())))
+    pub fn home_dir() -> PathBuf {
+        dirs_home().unwrap_or_else(|| {
+            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
+        })
     }
 
-    fn resolve_bin_path() -> PathBuf {
+    pub fn resolve_bin_path() -> PathBuf {
         let home = Self::home_dir();
         let cargo_bin = home.join(".cargo/bin/soundthis");
         if cargo_bin.exists() {
@@ -69,10 +72,24 @@ impl Installer {
     }
 
     pub fn install() -> Result<(), SoundThisError> {
-        Self::validate_templates()?;
-
         let home = Self::home_dir();
         let bin_path = Self::resolve_bin_path();
+        Self::install_to(&home, &bin_path, true)?;
+
+        println!("\n✅ SoundThis successfully installed!");
+        println!("   Server: Running on port 9697 via systemd user service");
+        println!("   Plugin: Installed in Omarchy bar");
+        println!("   Status: Run `soundthis status` to check streaming status\n");
+
+        Ok(())
+    }
+
+    pub fn install_to(
+        home: &Path,
+        bin_path: &Path,
+        manage_systemd: bool,
+    ) -> Result<(), SoundThisError> {
+        Self::validate_templates()?;
         info!("Installing SoundThis using binary: {}", bin_path.display());
 
         // 1. Install user systemd service
@@ -83,8 +100,10 @@ impl Installer {
         fs::write(&service_file, service_content)?;
         info!("Wrote systemd unit to {}", service_file.display());
 
-        SystemdManager::daemon_reload()?;
-        SystemdManager::enable_and_start("soundthis.service")?;
+        if manage_systemd {
+            SystemdManager::daemon_reload()?;
+            SystemdManager::enable_and_start("soundthis.service")?;
+        }
 
         // 2. Install Omarchy plugin
         let plugin_dir = home.join(".config/omarchy/plugins/soundthis");
@@ -117,30 +136,35 @@ impl Installer {
             }
         }
 
-        // 4. Reload Omarchy shell
-        info!("Reloading Omarchy shell...");
-        let _ = Command::new("omarchy")
-            .args(["restart", "shell"])
-            .status();
-
-        println!("\n✅ SoundThis successfully installed!");
-        println!("   Server: Running on port 9697 via systemd user service");
-        println!("   Plugin: Installed in Omarchy bar");
-        println!("   Status: Run `soundthis status` to check streaming status\n");
+        // 4. Reload Omarchy shell if requested
+        if manage_systemd {
+            info!("Reloading Omarchy shell...");
+            let _ = Command::new("omarchy").args(["restart", "shell"]).status();
+        }
 
         Ok(())
     }
 
     pub fn uninstall() -> Result<(), SoundThisError> {
         let home = Self::home_dir();
+        Self::uninstall_from(&home, true)?;
+        println!("\n🗑️ SoundThis successfully uninstalled!\n");
+        Ok(())
+    }
+
+    pub fn uninstall_from(home: &Path, manage_systemd: bool) -> Result<(), SoundThisError> {
         info!("Uninstalling SoundThis...");
 
         // 1. Stop systemd daemon
-        let _ = SystemdManager::stop_and_disable("soundthis.service");
+        if manage_systemd {
+            let _ = SystemdManager::stop_and_disable("soundthis.service");
+        }
         let service_file = home.join(".config/systemd/user/soundthis.service");
         if service_file.exists() {
             let _ = fs::remove_file(&service_file);
-            let _ = SystemdManager::daemon_reload();
+            if manage_systemd {
+                let _ = SystemdManager::daemon_reload();
+            }
             info!("Removed {}", service_file.display());
         }
 
@@ -173,11 +197,9 @@ impl Installer {
         }
 
         // 4. Reload Omarchy shell
-        let _ = Command::new("omarchy")
-            .args(["restart", "shell"])
-            .status();
-
-        println!("\n🗑️ SoundThis successfully uninstalled!\n");
+        if manage_systemd {
+            let _ = Command::new("omarchy").args(["restart", "shell"]).status();
+        }
 
         Ok(())
     }

@@ -9,12 +9,16 @@ impl SystemdManager {
         let status = Command::new("systemctl")
             .args(["--user", "daemon-reload"])
             .status()
-            .map_err(|e| SoundThisError::Installer(format!("Failed to run systemctl daemon-reload: {e}")))?;
+            .map_err(|e| {
+                SoundThisError::Installer(format!("Failed to run systemctl daemon-reload: {e}"))
+            })?;
 
         if status.success() {
             Ok(())
         } else {
-            Err(SoundThisError::Installer("systemctl daemon-reload failed".into()))
+            Err(SoundThisError::Installer(
+                "systemctl daemon-reload failed".into(),
+            ))
         }
     }
 
@@ -27,12 +31,18 @@ impl SystemdManager {
         let status = Command::new("systemctl")
             .args(["--user", "restart", service_name])
             .status()
-            .map_err(|e| SoundThisError::Installer(format!("Failed to start/restart service {service_name}: {e}")))?;
+            .map_err(|e| {
+                SoundThisError::Installer(format!(
+                    "Failed to start/restart service {service_name}: {e}"
+                ))
+            })?;
 
         if status.success() {
             Ok(())
         } else {
-            Err(SoundThisError::Installer(format!("Failed to start/restart {service_name}")))
+            Err(SoundThisError::Installer(format!(
+                "Failed to start/restart {service_name}"
+            )))
         }
     }
 
