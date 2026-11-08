@@ -12,6 +12,7 @@ pub const CHANNELS: u16 = 2;
 // 960 frames * 4 bytes per sample (16-bit stereo) = 3840 bytes (~20ms of audio)
 pub const CHUNK_SIZE: usize = 3840;
 pub const BROADCAST_CAPACITY: usize = 64;
+pub const CONFIG_TEMPLATE: &str = include_str!("../config/config.toml.template");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -198,6 +199,7 @@ impl ServerConfig {
 
         if !path.exists() {
             if explicit_path.is_none() {
+                Self::validate_template()?;
                 // Ensure directory exists and write default config with explanatory comments
                 let _ = fs::create_dir_all(Self::config_dir());
                 let default_content = Self::default_toml_template();
@@ -224,39 +226,31 @@ impl ServerConfig {
         })
     }
 
+    pub fn validate_template() -> Result<(), SoundThisError> {
+        let parsed: Self = toml::from_str(CONFIG_TEMPLATE).map_err(|e| {
+            SoundThisError::Installer(format!("Default config template is invalid TOML: {e}"))
+        })?;
+
+        if parsed.port == 0 {
+            return Err(SoundThisError::Installer(
+                "Config template must specify a non-zero port".into(),
+            ));
+        }
+
+        if !CONFIG_TEMPLATE.contains("[tls]")
+            || !CONFIG_TEMPLATE.contains("[cors]")
+            || !CONFIG_TEMPLATE.contains("[audio]")
+        {
+            return Err(SoundThisError::Installer(
+                "Config template missing standard configuration sections".into(),
+            ));
+        }
+
+        Ok(())
+    }
+
     pub fn default_toml_template() -> &'static str {
-        r#"# SoundThis Configuration File
-# Location: ~/.config/soundthis/config.toml
-
-# Server port (default: 9697)
-port = 9697
-
-# Bind address (default: "0.0.0.0" accepts local and LAN connections)
-host = "0.0.0.0"
-
-# Protocol: "http" or "https" (default: "http")
-protocol = "http"
-
-[tls]
-# Path to TLS certificate and private key in PEM format (required when protocol is "https")
-# If left commented or set to auto_generate = true, a self-signed certificate is auto-generated
-# cert_path = "~/.config/soundthis/certs/cert.pem"
-# key_path = "~/.config/soundthis/certs/key.pem"
-auto_generate = true
-
-[cors]
-# Allowed origins for HTTP and WebSocket requests (default: ["*"])
-allow_origins = ["*"]
-allow_methods = ["GET", "POST", "OPTIONS"]
-allow_headers = ["*"]
-
-[audio]
-# Audio capture settings for PipeWire / PulseAudio
-sample_rate = 48000
-channels = 2
-chunk_size = 3840
-latency_ms = 20
-"#
+        CONFIG_TEMPLATE
     }
 
     pub fn resolve_tls_pem(&self, lan_ip: &str) -> Result<(Vec<u8>, Vec<u8>), SoundThisError> {

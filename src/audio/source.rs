@@ -194,12 +194,20 @@ mod tests {
         match source.start().await {
             Ok(mut rx) => {
                 let _ =
-                    tokio::time::timeout(tokio::time::Duration::from_millis(50), rx.recv()).await;
+                    tokio::time::timeout(tokio::time::Duration::from_millis(150), rx.recv()).await;
                 assert!(source.stop().await.is_ok());
             }
             Err(e) => {
                 assert!(matches!(e, SoundThisError::AudioCapture(_)));
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parec_source_drop() {
+        let mut source = ParecAudioSource::new();
+        if let Ok(_rx) = source.start().await {
+            drop(source); // Exercise Drop implementation
         }
     }
 }
