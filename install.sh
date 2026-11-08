@@ -24,6 +24,9 @@ chmod +x "$HOME/.local/bin/soundthis"
 cp "$SCRIPT_DIR/server.py" "$HOME/.local/share/soundthis/server.py"
 chmod +x "$HOME/.local/share/soundthis/server.py"
 
+cp "$SCRIPT_DIR/uninstall.sh" "$HOME/.local/share/soundthis/uninstall.sh"
+chmod +x "$HOME/.local/share/soundthis/uninstall.sh"
+
 cp "$SCRIPT_DIR/web/index.html" "$HOME/.local/share/soundthis/web/index.html"
 
 # 3. Validate and install Omarchy shell plugin

@@ -115,10 +115,25 @@ def cmd_serve(args):
 
 def cmd_install(args):
     install_script = os.path.join(BASE_DIR, "install.sh")
-    if os.path.isfile(install_script):
-        subprocess.run(["bash", install_script])
+    candidates = [install_script, "/home/rvs/dev/soundthis/install.sh"]
+    target = next((c for c in candidates if os.path.isfile(c)), None)
+    if target:
+        subprocess.run(["bash", target])
     else:
         print("install.sh not found!", file=sys.stderr)
+        sys.exit(1)
+
+def cmd_uninstall(args):
+    candidates = [
+        os.path.join(BASE_DIR, "uninstall.sh"),
+        os.path.expanduser("~/.local/share/soundthis/uninstall.sh"),
+        "/home/rvs/dev/soundthis/uninstall.sh"
+    ]
+    target = next((c for c in candidates if os.path.isfile(c)), None)
+    if target:
+        subprocess.run(["bash", target])
+    else:
+        print("uninstall.sh not found!", file=sys.stderr)
         sys.exit(1)
 
 def main():
@@ -143,8 +158,9 @@ def main():
     # open
     subparsers.add_parser("open", help="Open web client in browser")
 
-    # install
+    # install / uninstall
     subparsers.add_parser("install", help="Install Omarchy plugin")
+    subparsers.add_parser("uninstall", help="Uninstall Omarchy plugin and remove server")
 
     args = parser.parse_args()
 
@@ -164,7 +180,8 @@ def main():
         "disable": cmd_disable,
         "toggle": cmd_toggle,
         "open": cmd_open,
-        "install": cmd_install
+        "install": cmd_install,
+        "uninstall": cmd_uninstall
     }
 
     cmd_fn = commands.get(args.command)
