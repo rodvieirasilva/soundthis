@@ -6,6 +6,21 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 
 ---
 
+## Preview
+
+<p align="center">
+  <img src="docs/screenshots/web-client.png" alt="SoundThis Web Player Interface" width="48%" />
+  &nbsp;
+  <img src="docs/screenshots/omarchy-panel.png" alt="SoundThis Omarchy Desktop Bar Widget & Panel" width="48%" />
+</p>
+
+<p align="center">
+  <em>Left: Embedded web player with real-time waveform visualizer, client naming, and live stream telemetry.<br>
+  Right: Native Omarchy desktop bar widget and popout panel showing server link and active listeners.</em>
+</p>
+
+---
+
 ## Highlights
 
 - **Native Rust Server**: Axum + Tokio async WebSocket broadcast server with minimal memory footprint (~1.6 MB RAM) and sub-3ms startup.
@@ -134,13 +149,18 @@ soundthis --config /path/to/my-config.toml serve
 ## Usage
 
 ### Web Client
-Open the streaming page on any device connected to your network:
+Open the streaming page on any device connected to your network (smartphones, tablets, laptops, smart TVs):
 
 ```
 http://<YOUR_LAN_IP>:9697
 # Or https://<YOUR_LAN_IP>:9697 if HTTPS is enabled
 ```
 *(Shown in `soundthis status` and in the Omarchy bar popout)*
+
+<p align="center">
+  <img src="docs/screenshots/web-mobile.png" alt="SoundThis Mobile Responsive Player" width="300" />
+</p>
+
 
 ### Omarchy Bar Widget
 - **Left Click**: Opens the SoundThis control panel showing LAN link, connected listeners, and controls.

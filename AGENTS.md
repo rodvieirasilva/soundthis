@@ -26,6 +26,8 @@ soundthis/
 │       └── release.yml            # Automated GitHub releases on v* git tags
 ├── config/
 │   └── config.toml.template       # External template for ~/.config/soundthis/config.toml
+├── docs/
+│   └── screenshots/               # UI and desktop screenshots for documentation
 ├── plugin/
 │   ├── manifest.json              # Omarchy shell plugin manifest
 │   └── Panel.qml                  # Omarchy desktop bar widget and popout panel
