@@ -13,7 +13,7 @@ function inlineSvgPlugin(): Plugin {
         const srcMatch = attrStr.match(/src=["']([^"']+)["']/i);
         if (!srcMatch) return "";
         const src = srcMatch[1];
-        const filePath = path.resolve(__dirname, src);
+        const filePath = path.resolve(import.meta.dirname, src);
 
         if (!fs.existsSync(filePath)) {
           throw new Error(`SVG file not found: ${filePath}`);
