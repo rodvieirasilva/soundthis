@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-and-test:
+    name: Check, Test & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio-utils libpulse-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        run: |
+          cd web
+          npm ci
+
+      - name: Frontend Linter (ESLint)
+        run: |
+          cd web
+          npm run lint
+
+      - name: Frontend Tests & Coverage (Vitest >= 80%)
+        run: |
+          cd web
+          npm run test:coverage
+
+      - name: Build Web Bundle (Vite singlefile)
+        run: |
+          cd web
+          npm run build
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Rust Format Check (rustfmt)
+        run: cargo fmt --check
+
+      - name: Rust Linter (Clippy)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Rust Tests & Coverage (cargo-llvm-cov >= 80%)
+        run: cargo llvm-cov --summary-only
+
+      - name: Build Release Binary
+        run: cargo build --release

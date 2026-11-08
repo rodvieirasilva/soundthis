@@ -27,7 +27,7 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 
 ```bash
 # Clone the repository
-git clone https://github.com/soundthis/soundthis.git
+git clone https://github.com/rodvieirasilva/soundthis.git
 cd soundthis
 
 # Build and install binary + setup Omarchy plugin and systemd service

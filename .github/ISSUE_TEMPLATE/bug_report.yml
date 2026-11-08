@@ -1,0 +1,44 @@
+name: Bug Report
+description: Report a reproducible problem or defect in SoundThis
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much detail as possible.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run `soundthis serve`
+        2. Open browser at http://...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: System details (Omarchy version, Linux kernel, audio server, browser).
+      value: |
+        - OS: Omarchy Linux
+        - SoundThis Version: 0.2.0
+        - Audio Daemon: PipeWire / PulseAudio
+        - Browser / Client: Chrome / Firefox / Safari / Mobile
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server Logs / Terminal Output
+      description: Relevant logs from running `RUST_LOG=debug soundthis serve`.
+      render: shell
