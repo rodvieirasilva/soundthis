@@ -1,6 +1,7 @@
 [Unit]
 Description=SoundThis - Real-time Desktop Audio Streaming Server for Omarchy
-After=pipewire.service pipewire-pulse.service pulseaudio.service network.target sound.target
+After=pipewire.service pipewire-pulse.service pulseaudio.service sound.target network.target
+Wants=pipewire.service pipewire-pulse.service
 
 [Service]
 Type=simple

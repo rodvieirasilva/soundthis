@@ -6,6 +6,11 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::info;
 
+#[cfg(test)]
+const RETRY_DELAY_MS: u64 = 20;
+#[cfg(not(test))]
+const RETRY_DELAY_MS: u64 = 1000;
+
 pub struct AudioBroadcaster {
     sender: broadcast::Sender<Arc<Vec<u8>>>,
 }
@@ -42,21 +47,25 @@ impl AudioBroadcaster {
 
         tokio::spawn(async move {
             info!("Starting audio capture & broadcast loop...");
-            match source.start().await {
-                Ok(mut rx) => {
-                    while let Some(chunk) = rx.recv().await {
-                        // Only broadcast audio if server enabled
-                        if state.is_enabled() {
-                            let arc_chunk = Arc::new(chunk);
-                            // It's normal if there are currently 0 active subscribers
-                            let _ = sender.send(arc_chunk);
+            loop {
+                match source.start().await {
+                    Ok(mut rx) => {
+                        while let Some(chunk) = rx.recv().await {
+                            // Only broadcast audio if server enabled
+                            if state.is_enabled() {
+                                let arc_chunk = Arc::new(chunk);
+                                // It's normal if there are currently 0 active subscribers
+                                let _ = sender.send(arc_chunk);
+                            }
                         }
+                        let _ = source.stop().await;
+                        tracing::warn!("Audio capture stream ended; restarting...");
                     }
-                    let _ = source.stop().await;
+                    Err(e) => {
+                        tracing::error!("Failed to start audio source: {e}; retrying...");
+                    }
                 }
-                Err(e) => {
-                    tracing::error!("Failed to start audio source: {e}");
-                }
+                tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
             }
         });
 
@@ -99,5 +108,44 @@ mod tests {
         broadcaster.broadcast_chunk(Arc::new(vec![99]));
         let chunk3 = sub.recv().await.unwrap();
         assert_eq!(*chunk3, vec![99]);
+    }
+
+    struct FailingMockAudioSource {
+        attempts: usize,
+    }
+
+    #[async_trait::async_trait]
+    impl AudioSource for FailingMockAudioSource {
+        async fn start(&mut self) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>, SoundThisError> {
+            self.attempts += 1;
+            if self.attempts == 1 {
+                Err(SoundThisError::AudioCapture("simulated failure".into()))
+            } else {
+                let (tx, rx) = tokio::sync::mpsc::channel(1);
+                let _ = tx.send(vec![42]).await;
+                Ok(rx)
+            }
+        }
+
+        async fn stop(&mut self) -> Result<(), SoundThisError> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_broadcaster_retry_on_error() {
+        let broadcaster = AudioBroadcaster::default();
+        let state = AppState::new(9697, "127.0.0.1".into(), Protocol::Http);
+
+        let mut sub = broadcaster.subscribe();
+        let source = FailingMockAudioSource { attempts: 0 };
+
+        assert!(broadcaster.start_broadcasting(source, state).is_ok());
+
+        let chunk = tokio::time::timeout(tokio::time::Duration::from_millis(500), sub.recv())
+            .await
+            .expect("Timeout waiting for recovered chunk")
+            .expect("Recv error");
+        assert_eq!(*chunk, vec![42]);
     }
 }

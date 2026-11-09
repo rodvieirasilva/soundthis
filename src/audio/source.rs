@@ -81,6 +81,7 @@ impl ParecAudioSource {
 #[async_trait]
 impl AudioSource for ParecAudioSource {
     async fn start(&mut self) -> Result<mpsc::Receiver<Vec<u8>>, SoundThisError> {
+        let _ = self.stop().await;
         let mut child = Self::spawn_parec().await?;
         let mut stdout = child.stdout.take().ok_or_else(|| {
             SoundThisError::AudioCapture("Failed to capture stdout of parec".into())
