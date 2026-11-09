@@ -150,12 +150,15 @@ export class CanvasVisualizer {
       return;
     }
 
+    if (this.canvas.width === 0 || this.canvas.height === 0) {
+      this.handleResize();
+    }
+
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
 
-    if (width <= 0 || height <= 0 || this.canvas.width === 0) {
-      this.handleResize();
+    if (width <= 0 || height <= 0) {
       return;
     }
 

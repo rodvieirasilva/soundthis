@@ -36,8 +36,12 @@ export default defineConfig({
   plugins: [inlineSvgPlugin(), viteSingleFile()],
   test: {
     environment: "jsdom",
+    include: ["src/**/*.test.ts"],
+    exclude: ["e2e/**", "node_modules/**"],
     coverage: {
       provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts", "src/main.ts"],
       reporter: ["text", "json", "html"],
       thresholds: {
         lines: 80,

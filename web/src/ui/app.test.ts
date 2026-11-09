@@ -38,9 +38,11 @@ class MockAudioContext {
     connect: vi.fn(),
   });
   createAnalyser = vi.fn().mockReturnValue({
-    fftSize: 64,
-    smoothingTimeConstant: 0.8,
+    fftSize: 512,
+    frequencyBinCount: 256,
+    smoothingTimeConstant: 0.75,
     connect: vi.fn(),
+    getByteFrequencyData: vi.fn(),
   });
   createBuffer = vi.fn().mockReturnValue({
     numberOfChannels: 2,
@@ -58,6 +60,7 @@ class MockAudioContext {
 
 describe("SoundThisApp", () => {
   beforeEach(() => {
+    localStorage.clear();
     document.body.innerHTML = HTML_TEMPLATE;
     (window as unknown as { AudioContext: unknown }).AudioContext = MockAudioContext;
 
@@ -183,5 +186,89 @@ describe("SoundThisApp", () => {
     offBtn.click();
     expect(offBtn.classList.contains("active")).toBe(true);
     expect(localStorage.getItem("soundthis_viz_mode")).toBe("off");
+  });
+
+  it("should handle audio disconnection and reconnection with mock sound generator and bumping bars", async () => {
+    const app = new SoundThisApp();
+    app.init();
+
+    const statusBadge = document.getElementById("status-badge")!;
+
+    // 1. User starts live playback
+    await (app as unknown as { togglePlayback: () => Promise<void> }).togglePlayback();
+    expect(statusBadge.classList.contains("live")).toBe(true);
+    expect(statusBadge.textContent).toContain("Live");
+
+    // 2. Mock sound generator creates synthetic PCM audio
+    const generateMockAudio = (samples = 256, freq = 440): ArrayBuffer => {
+      const buf = new ArrayBuffer(samples * 4); // 2 channels * 16-bit
+      const view = new Int16Array(buf);
+      for (let i = 0; i < samples; i++) {
+        const val = Math.round(Math.sin((2 * Math.PI * freq * i) / 48000) * 16000);
+        view[i * 2] = val;
+        view[i * 2 + 1] = val;
+      }
+      return buf;
+    };
+
+    // Mock analyzer with frequency data when audio is fed
+    const visualizer = (app as unknown as { visualizer: { isLiveActive: () => boolean; draw: () => void } }).visualizer;
+    const player = (app as unknown as { player: { getAnalyser: () => { getByteFrequencyData: (arr: Uint8Array) => void } } }).player;
+    const analyser = player.getAnalyser();
+    expect(analyser).not.toBeNull();
+
+    // Populate frequency bins representing bumping audio
+    const getByteFreqSpy = vi.spyOn(analyser, "getByteFrequencyData").mockImplementation((arr: Uint8Array) => {
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = Math.round(50 + Math.sin(i / 5) * 40 + 20);
+      }
+    });
+
+    // Feed audio data
+    (app as unknown as { handleAudioData: (b: ArrayBuffer) => void }).handleAudioData(generateMockAudio());
+    expect(visualizer.isLiveActive()).toBe(true);
+
+    // Verify visualizer draws with dynamic frequency data (bars bumping)
+    const mockCtx = (visualizer as unknown as { ctx: { roundRect: unknown } }).ctx;
+    const roundRectSpy = mockCtx.roundRect as ReturnType<typeof vi.fn>;
+    roundRectSpy.mockClear();
+
+    (visualizer as unknown as { draw: () => void }).draw();
+    expect(roundRectSpy).toHaveBeenCalled();
+    const calls = roundRectSpy.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const bumpingBars = calls.filter((args: [number, number, number, number]) => args[3] > 4);
+    expect(bumpingBars.length).toBeGreaterThan(0);
+
+    // 3. Simulate audio / websocket disconnection
+    (app as unknown as { handleWSClose: () => void }).handleWSClose();
+    expect(statusBadge.classList.contains("offline")).toBe(true);
+    expect(statusBadge.textContent).toContain("Offline");
+    expect(visualizer.isLiveActive()).toBe(false);
+
+    // During disconnection, drawing does not bump active bars
+    roundRectSpy.mockClear();
+    (visualizer as unknown as { draw: () => void }).draw();
+    const callsWhileDisconnected = roundRectSpy.mock.calls;
+    const activeDisconnectedBars = callsWhileDisconnected.filter((args: [number, number, number, number]) => args[3] > 4);
+    expect(activeDisconnectedBars.length).toBe(0);
+
+    // 4. Simulate reconnection
+    (app as unknown as { handleWSOpen: () => void }).handleWSOpen();
+    expect(statusBadge.classList.contains("live")).toBe(true);
+    expect(statusBadge.textContent).toContain("Live");
+
+    // Feed incoming audio after reconnection
+    (app as unknown as { handleAudioData: (b: ArrayBuffer) => void }).handleAudioData(generateMockAudio());
+    expect(visualizer.isLiveActive()).toBe(true);
+
+    // Verify bars are bumping again
+    roundRectSpy.mockClear();
+    (visualizer as unknown as { draw: () => void }).draw();
+    const callsAfterReconnect = roundRectSpy.mock.calls;
+    const activeReconnectedBars = callsAfterReconnect.filter((args: [number, number, number, number]) => args[3] > 4);
+    expect(activeReconnectedBars.length).toBeGreaterThan(0);
+
+    getByteFreqSpy.mockRestore();
   });
 });

@@ -9,9 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "lint": "eslint 'src/**/*.{ts,tsx}'"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
     "@vitest/coverage-v8": "^5.1.0",

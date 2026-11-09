@@ -30,6 +30,11 @@ description = "Run frontend unit tests with vitest"
 dir = "web"
 run = "npm test"
 
+[tasks."test:e2e"]
+description = "Run Playwright browser integration tests with Linux audio"
+dir = "web"
+run = "npm run test:e2e"
+
 [tasks."test:server"]
 description = "Run Rust unit and integration tests"
 run = "cargo test"

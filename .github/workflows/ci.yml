@@ -73,3 +73,13 @@ jobs:
 
       - name: Build Release Binary
         run: cargo build --release
+
+      - name: Install Playwright Chromium
+        run: |
+          cd web
+          npx playwright install chromium
+
+      - name: Browser Integration Tests (Playwright E2E)
+        run: |
+          cd web
+          npm run test:e2e
