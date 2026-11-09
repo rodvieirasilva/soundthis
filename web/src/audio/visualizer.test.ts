@@ -120,4 +120,19 @@ describe("CanvasVisualizer", () => {
     visualizer.handleResize();
     (visualizer as unknown as { draw: () => void }).draw();
   });
+
+  it("should reuse pre-allocated array buffer across multiple draw frames to avoid heap churn", () => {
+    const visualizer = new CanvasVisualizer(canvas);
+    const mockAnalyser = {
+      frequencyBinCount: 256,
+      getByteFrequencyData: vi.fn(),
+    } as unknown as AnalyserNode;
+
+    visualizer.setAnalyser(mockAnalyser);
+    visualizer.setLive(true);
+
+    const f1 = (visualizer as unknown as { getFrequencies: (c: number) => number[] }).getFrequencies(32);
+    const f2 = (visualizer as unknown as { getFrequencies: (c: number) => number[] }).getFrequencies(32);
+    expect(f1).toBe(f2);
+  });
 });

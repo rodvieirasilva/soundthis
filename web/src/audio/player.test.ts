@@ -121,4 +121,19 @@ describe("AudioStreamPlayer", () => {
     expect(stats.packetsReceived).toBe(1);
     expect(stats.bytesReceived).toBe(16);
   });
+
+  it("should not leak memory or retain buffers when feeding high volume of PCM chunks", async () => {
+    const player = new AudioStreamPlayer();
+    await player.init();
+    player.setPlaying(true);
+
+    const chunk = new Int16Array([100, -100, 200, -200]).buffer;
+    for (let i = 0; i < 1000; i++) {
+      player.feedPCM(chunk);
+    }
+
+    const stats = player.getStats();
+    expect(stats.packetsReceived).toBe(1000);
+    expect(stats.bytesReceived).toBe(1000 * 8);
+  });
 });

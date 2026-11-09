@@ -9,6 +9,7 @@ export class CanvasVisualizer {
   private isLive = false;
   private mode: VisualizerMode = "bars";
   private resizeObserver: ResizeObserver | null = null;
+  private fractions: number[] = new Array<number>(32).fill(0);
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -105,9 +106,12 @@ export class CanvasVisualizer {
   }
 
   private getFrequencies(count: number): number[] {
-    const fractions = new Array<number>(count).fill(0);
+    if (this.fractions.length !== count) {
+      this.fractions = new Array<number>(count).fill(0);
+    }
     if (!this.analyser || !this.dataArray || !this.isLive) {
-      return fractions;
+      this.fractions.fill(0);
+      return this.fractions;
     }
 
     this.analyser.getByteFrequencyData(this.dataArray);
@@ -138,10 +142,10 @@ export class CanvasVisualizer {
       const tilt = 1.0 + Math.pow(i / (count - 1), 0.75) * 1.5;
       const val = Math.min(255, raw * tilt);
 
-      fractions[i] = Math.max(0, Math.min(1, val / 255.0));
+      this.fractions[i] = Math.max(0, Math.min(1, val / 255.0));
     }
 
-    return fractions;
+    return this.fractions;
   }
 
   private draw(): void {

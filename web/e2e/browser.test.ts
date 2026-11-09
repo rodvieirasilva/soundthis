@@ -177,4 +177,53 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await expect(statusBadge).toHaveClass(/live/, { timeout: 8000 });
     await expect(statusBadge).toContainText("Live");
   });
+
+  test("should maintain stable memory utilization during sustained playback without accumulation", async ({
+    page,
+  }) => {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Performance.enable");
+
+    await page.goto(`http://127.0.0.1:${testPort}/`);
+    await page.locator("#play-btn").click();
+    await expect(page.locator("#status-badge")).toHaveClass(/live/);
+
+    // Allow connection and AudioContext to warm up
+    await page.waitForTimeout(500);
+
+    // Baseline: run GC and collect baseline metrics
+    await cdp.send("HeapProfiler.enable");
+    await cdp.send("HeapProfiler.collectGarbage");
+    const baseline = await cdp.send("Performance.getMetrics");
+    const getMetric = (metrics: { name: string; value: number }[], name: string) =>
+      metrics.find((m) => m.name === name)?.value ?? 0;
+
+    const baselineHeap = getMetric(baseline.metrics, "JSHeapUsedSize");
+    const baselineNodes = getMetric(baseline.metrics, "Nodes");
+
+    // Sustained streaming: play audio across multiple rounds
+    for (let i = 0; i < 3; i++) {
+      playTestSound(testWavPath);
+      await page.waitForTimeout(800);
+    }
+
+    // Force GC to measure retained memory (detect true leaks, not temporary transient buffers)
+    await cdp.send("HeapProfiler.collectGarbage");
+    const sustained = await cdp.send("Performance.getMetrics");
+
+    const sustainedHeap = getMetric(sustained.metrics, "JSHeapUsedSize");
+    const sustainedNodes = getMetric(sustained.metrics, "Nodes");
+
+    // Assertions:
+    // 1. Heap delta must be bounded (< 4MB retained growth after thousands of audio chunks)
+    const heapGrowth = sustainedHeap - baselineHeap;
+    expect(heapGrowth).toBeLessThan(4 * 1024 * 1024);
+
+    // 2. Total JS Heap must remain lean and sub-25MB
+    expect(sustainedHeap).toBeLessThan(25 * 1024 * 1024);
+
+    // 3. DOM Nodes must not leak (< 5 node delta)
+    const nodeGrowth = Math.abs(sustainedNodes - baselineNodes);
+    expect(nodeGrowth).toBeLessThanOrEqual(5);
+  });
 });

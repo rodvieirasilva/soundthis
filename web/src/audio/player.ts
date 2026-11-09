@@ -101,6 +101,9 @@ export class AudioStreamPlayer {
     const source = this.ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.gainNode);
+    source.onended = () => {
+      source.disconnect();
+    };
 
     const currentTime = this.ctx.currentTime;
     // Keep playback within 40-70ms target latency
