@@ -13,7 +13,17 @@ const HTML_TEMPLATE = `
   <span id="volume-text">100%</span>
   <input type="text" id="client-name-input" value="" />
   <span id="stats-text"></span>
-  <canvas id="visualizer" width="300" height="100"></canvas>
+  <div class="visualizer-container">
+    <canvas id="visualizer" width="300" height="100"></canvas>
+    <div class="visualizer-toolbar">
+      <div class="viz-btn-group">
+        <button type="button" class="viz-btn active" data-mode="bars">Bars</button>
+        <button type="button" class="viz-btn" data-mode="wave">Wave</button>
+        <button type="button" class="viz-btn" data-mode="line">Line</button>
+        <button type="button" class="viz-btn" data-mode="off">Off</button>
+      </div>
+    </div>
+  </div>
 `;
 
 class MockAudioContext {
@@ -57,6 +67,11 @@ describe("SoundThisApp", () => {
       beginPath: vi.fn(),
       roundRect: vi.fn(),
       fill: vi.fn(),
+      stroke: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      quadraticCurveTo: vi.fn(),
       scale: vi.fn(),
       resetTransform: vi.fn(),
     };
@@ -153,5 +168,20 @@ describe("SoundThisApp", () => {
     (app as unknown as { updateStats: () => void }).updateStats();
     const statsText = document.getElementById("stats-text")!;
     expect(statsText.textContent).toContain("48kHz");
+  });
+
+  it("should handle visualizer mode button clicks", () => {
+    const app = new SoundThisApp();
+    app.init();
+
+    const waveBtn = document.querySelector<HTMLButtonElement>('.viz-btn[data-mode="wave"]')!;
+    waveBtn.click();
+    expect(waveBtn.classList.contains("active")).toBe(true);
+    expect(localStorage.getItem("soundthis_viz_mode")).toBe("wave");
+
+    const offBtn = document.querySelector<HTMLButtonElement>('.viz-btn[data-mode="off"]')!;
+    offBtn.click();
+    expect(offBtn.classList.contains("active")).toBe(true);
+    expect(localStorage.getItem("soundthis_viz_mode")).toBe("off");
   });
 });

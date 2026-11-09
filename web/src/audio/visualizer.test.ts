@@ -14,6 +14,11 @@ describe("CanvasVisualizer", () => {
       beginPath: vi.fn(),
       roundRect: vi.fn(),
       fill: vi.fn(),
+      stroke: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      quadraticCurveTo: vi.fn(),
       scale: vi.fn(),
       resetTransform: vi.fn(),
     };
@@ -21,6 +26,9 @@ describe("CanvasVisualizer", () => {
     canvas = {
       getContext: vi.fn().mockReturnValue(mockCtx),
       getBoundingClientRect: vi.fn().mockReturnValue({ width: 300, height: 100 }),
+      parentElement: {
+        getBoundingClientRect: vi.fn().mockReturnValue({ width: 300, height: 100 }),
+      },
       width: 300,
       height: 100,
     } as unknown as HTMLCanvasElement;
@@ -48,15 +56,68 @@ describe("CanvasVisualizer", () => {
     const visualizer = new CanvasVisualizer(canvas);
 
     const mockAnalyser = {
-      frequencyBinCount: 32,
+      frequencyBinCount: 128,
       getByteFrequencyData: vi.fn().mockImplementation((arr: Uint8Array) => {
         arr.fill(128);
       }),
     } as unknown as AnalyserNode;
 
     visualizer.setAnalyser(mockAnalyser);
+    expect(visualizer.isLiveActive()).toBe(false);
+
     visualizer.setLive(true);
+    expect(visualizer.isLiveActive()).toBe(true);
+
     visualizer.setLive(false);
+    expect(visualizer.isLiveActive()).toBe(false);
+
     visualizer.setAnalyser(null);
+  });
+
+  it("should switch modes and render bars, wave, line, and off", () => {
+    const visualizer = new CanvasVisualizer(canvas);
+    const mockAnalyser = {
+      frequencyBinCount: 256,
+      getByteFrequencyData: vi.fn().mockImplementation((arr: Uint8Array) => {
+        for (let i = 0; i < arr.length; i++) {
+          arr[i] = (i * 3) % 255;
+        }
+      }),
+    } as unknown as AnalyserNode;
+
+    visualizer.setAnalyser(mockAnalyser);
+    visualizer.setLive(true);
+
+    // Default mode is bars
+    expect(visualizer.getMode()).toBe("bars");
+    (visualizer as unknown as { draw: () => void }).draw();
+
+    // Mode: wave
+    visualizer.setMode("wave");
+    expect(visualizer.getMode()).toBe("wave");
+    (visualizer as unknown as { draw: () => void }).draw();
+
+    // Mode: line
+    visualizer.setMode("line");
+    expect(visualizer.getMode()).toBe("line");
+    (visualizer as unknown as { draw: () => void }).draw();
+
+    // Mode: off
+    visualizer.setMode("off");
+    expect(visualizer.getMode()).toBe("off");
+    visualizer.start(); // calling start in off mode should clear and return
+  });
+
+  it("should handle resize gracefully when rect is zero", () => {
+    const zeroCanvas = {
+      getContext: vi.fn().mockReturnValue(mockCtx),
+      getBoundingClientRect: vi.fn().mockReturnValue({ width: 0, height: 0 }),
+      width: 0,
+      height: 0,
+    } as unknown as HTMLCanvasElement;
+
+    const visualizer = new CanvasVisualizer(zeroCanvas);
+    visualizer.handleResize();
+    (visualizer as unknown as { draw: () => void }).draw();
   });
 });

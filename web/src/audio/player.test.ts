@@ -11,8 +11,10 @@ class MockGainNode {
 }
 
 class MockAnalyserNode {
-  fftSize = 64;
-  smoothingTimeConstant = 0.8;
+  fftSize = 512;
+  minDecibels = -85;
+  maxDecibels = -25;
+  smoothingTimeConstant = 0.75;
   connect = vi.fn();
 }
 

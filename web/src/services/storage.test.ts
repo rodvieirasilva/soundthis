@@ -43,4 +43,22 @@ describe("ClientConfigStore", () => {
     localStorage.setItem("soundthis_volume", "2.5");
     expect(ClientConfigStore.getVolume()).toBe(1.0);
   });
+
+  it("should default visualizer mode to bars", () => {
+    expect(ClientConfigStore.getVisualizerMode()).toBe("bars");
+  });
+
+  it("should store and retrieve visualizer mode correctly", () => {
+    ClientConfigStore.setVisualizerMode("wave");
+    expect(ClientConfigStore.getVisualizerMode()).toBe("wave");
+
+    ClientConfigStore.setVisualizerMode("line");
+    expect(ClientConfigStore.getVisualizerMode()).toBe("line");
+
+    ClientConfigStore.setVisualizerMode("off");
+    expect(ClientConfigStore.getVisualizerMode()).toBe("off");
+
+    localStorage.setItem("soundthis_viz_mode", "invalid_mode");
+    expect(ClientConfigStore.getVisualizerMode()).toBe("bars");
+  });
 });

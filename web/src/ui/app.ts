@@ -2,7 +2,7 @@ import { AudioStreamPlayer } from "../audio/player";
 import { CanvasVisualizer } from "../audio/visualizer";
 import { AudioWebSocketClient } from "../services/ws";
 import { ClientConfigStore } from "../services/storage";
-import type { ConnectionStatus } from "../audio/types";
+import type { ConnectionStatus, VisualizerMode } from "../audio/types";
 
 export class SoundThisApp {
   private player: AudioStreamPlayer;
@@ -20,6 +20,7 @@ export class SoundThisApp {
   private volumeText!: HTMLElement;
   private clientNameInput!: HTMLInputElement;
   private statsText!: HTMLElement;
+  private vizButtons!: NodeListOf<HTMLButtonElement>;
 
   constructor() {
     const initialVolume = ClientConfigStore.getVolume();
@@ -49,6 +50,9 @@ export class SoundThisApp {
     this.volumeText.textContent = `${Math.round(vol * 100)}%`;
 
     this.visualizer.start();
+    const savedMode = ClientConfigStore.getVisualizerMode();
+    this.setVisualizerMode(savedMode);
+
     this.setStatus("connecting");
     this.wsClient.connect();
   }
@@ -63,6 +67,7 @@ export class SoundThisApp {
     this.volumeText = document.getElementById("volume-text")!;
     this.clientNameInput = document.getElementById("client-name-input") as HTMLInputElement;
     this.statsText = document.getElementById("stats-text")!;
+    this.vizButtons = document.querySelectorAll<HTMLButtonElement>(".viz-btn");
   }
 
   private bindEvents(): void {
@@ -82,7 +87,28 @@ export class SoundThisApp {
       this.wsClient.sendClientName(name);
     });
 
+    this.vizButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.mode as VisualizerMode;
+        if (mode) {
+          this.setVisualizerMode(mode);
+        }
+      });
+    });
+
     setInterval(() => this.updateStats(), 1000);
+  }
+
+  private setVisualizerMode(mode: VisualizerMode): void {
+    ClientConfigStore.setVisualizerMode(mode);
+    this.visualizer.setMode(mode);
+    this.vizButtons?.forEach((btn) => {
+      if (btn.dataset.mode === mode) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
   }
 
   private async togglePlayback(): Promise<void> {
@@ -142,8 +168,14 @@ export class SoundThisApp {
 
   private handleAudioData(buffer: ArrayBuffer): void {
     this.player.feedPCM(buffer);
-    if (this.player.getIsPlaying() && this.status !== "live") {
-      this.setStatus("live");
+    if (this.player.getIsPlaying()) {
+      if (this.status !== "live") {
+        this.setStatus("live");
+      }
+      if (!this.visualizer.isLiveActive()) {
+        this.visualizer.setAnalyser(this.player.getAnalyser());
+        this.visualizer.setLive(true);
+      }
     }
   }
 

@@ -1,5 +1,8 @@
+import type { VisualizerMode } from "../audio/types";
+
 const CLIENT_NAME_KEY = "soundthis_client_name";
 const VOLUME_KEY = "soundthis_volume";
+const VIZ_MODE_KEY = "soundthis_viz_mode";
 
 export class ClientConfigStore {
   public static getClientName(): string {
@@ -34,5 +37,17 @@ export class ClientConfigStore {
 
   public static setVolume(val: number): void {
     localStorage.setItem(VOLUME_KEY, String(val));
+  }
+
+  public static getVisualizerMode(): VisualizerMode {
+    const saved = localStorage.getItem(VIZ_MODE_KEY);
+    if (saved === "bars" || saved === "wave" || saved === "line" || saved === "off") {
+      return saved;
+    }
+    return "bars";
+  }
+
+  public static setVisualizerMode(mode: VisualizerMode): void {
+    localStorage.setItem(VIZ_MODE_KEY, mode);
   }
 }

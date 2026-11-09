@@ -34,8 +34,10 @@ export class AudioStreamPlayer {
     this.gainNode.gain.setValueAtTime(this.volumeLevel, this.ctx.currentTime);
 
     this.analyserNode = this.ctx.createAnalyser();
-    this.analyserNode.fftSize = 64;
-    this.analyserNode.smoothingTimeConstant = 0.8;
+    this.analyserNode.fftSize = 512;
+    this.analyserNode.minDecibels = -85;
+    this.analyserNode.maxDecibels = -25;
+    this.analyserNode.smoothingTimeConstant = 0.75;
 
     this.gainNode.connect(this.analyserNode);
     this.analyserNode.connect(this.ctx.destination);

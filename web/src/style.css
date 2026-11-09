@@ -116,10 +116,10 @@ body {
 
 .visualizer-container {
   width: 100%;
-  height: 90px;
-  background: rgba(0, 0, 0, 0.2);
+  height: 96px;
+  background: rgba(0, 0, 0, 0.25);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(122, 162, 247, 0.1);
+  border: 1px solid rgba(122, 162, 247, 0.15);
   overflow: hidden;
   position: relative;
 }
@@ -128,6 +128,47 @@ canvas#visualizer {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.visualizer-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+}
+
+.viz-btn-group {
+  display: flex;
+  gap: 2px;
+  background: rgba(26, 27, 38, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(122, 162, 247, 0.15);
+}
+
+.viz-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.viz-btn:hover {
+  color: var(--fg);
+  background: rgba(122, 162, 247, 0.1);
+}
+
+.viz-btn.active {
+  color: #1a1b26;
+  background: var(--accent);
 }
 
 .controls-card {
