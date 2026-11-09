@@ -19,47 +19,47 @@
           <span>Omarchy Audio Broadcast</span>
         </div>
       </div>
-      <div id="status-badge" class="status-badge connecting">
+      <div id="status-badge" class="status-badge connecting" data-testid="status-badge">
         <span class="dot">⟳</span> Connecting...
       </div>
     </div>
 
     <div class="visualizer-container">
-      <canvas id="visualizer"></canvas>
+      <canvas id="visualizer" data-testid="visualizer-canvas"></canvas>
       <div class="visualizer-toolbar">
         <div class="viz-btn-group">
-          <button type="button" class="viz-btn active" data-mode="bars" title="Equalizer Bars">Bars</button>
-          <button type="button" class="viz-btn" data-mode="wave" title="Mirrored Wave">Wave</button>
-          <button type="button" class="viz-btn" data-mode="line" title="Frequency Curve">Line</button>
-          <button type="button" class="viz-btn" data-mode="off" title="Disable Animation">Off</button>
+          <button type="button" class="viz-btn active" data-mode="bars" data-testid="viz-mode-bars" title="Equalizer Bars">Bars</button>
+          <button type="button" class="viz-btn" data-mode="wave" data-testid="viz-mode-wave" title="Mirrored Wave">Wave</button>
+          <button type="button" class="viz-btn" data-mode="line" data-testid="viz-mode-line" title="Frequency Curve">Line</button>
+          <button type="button" class="viz-btn" data-mode="off" data-testid="viz-mode-off" title="Disable Animation">Off</button>
         </div>
       </div>
     </div>
 
     <div class="controls-card">
-      <button id="play-btn" class="btn-primary paused">
+      <button id="play-btn" class="btn-primary paused" data-testid="play-btn">
         <svg-icon id="play-icon" src="src/assets/icons/play.svg" width="20" height="20"></svg-icon>
         <svg-icon id="pause-icon" src="src/assets/icons/pause.svg" width="20" height="20" style="display: none;"></svg-icon>
-        <span id="play-btn-text">Listen Live</span>
+        <span id="play-btn-text" data-testid="play-btn-text">Listen Live</span>
       </button>
 
       <div class="volume-section">
         <svg-icon src="src/assets/icons/volume.svg" width="18" height="18"></svg-icon>
-        <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.01" value="1.0">
-        <span id="volume-text" class="volume-percent">100%</span>
+        <input type="range" id="volume-slider" class="volume-slider" data-testid="volume-slider" min="0" max="1" step="0.01" value="1.0">
+        <span id="volume-text" class="volume-percent" data-testid="volume-text">100%</span>
       </div>
 
       <div class="meta-field">
         <label for="client-name-input">Client Name</label>
         <div class="name-input-wrapper">
-          <input type="text" id="client-name-input" class="name-input" placeholder="e.g. My Phone, Living Room" maxlength="40">
+          <input type="text" id="client-name-input" class="name-input" data-testid="client-name-input" placeholder="e.g. My Phone, Living Room" maxlength="40">
         </div>
       </div>
     </div>
 
     <div class="footer">
-      <span id="stats-text">48kHz Stereo • 16-bit PCM</span>
-      <a href="https://github.com/rodvieirasilva/soundthis" target="_blank" rel="noopener">v0.2.0</a>
+      <span id="stats-text" data-testid="stats-text">48kHz Stereo • 16-bit PCM</span>
+      <a href="https://github.com/rodvieirasilva/soundthis" target="_blank" rel="noopener" data-testid="version-link">v0.3.0</a>
     </div>
   </div>
 

@@ -102,9 +102,10 @@ async function main() {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${testPort}/`);
 
-    // Click listen live
-    await page.locator("#play-btn").click();
-    await page.waitForSelector("#status-badge.live", { timeout: 5000 });
+    // Click listen live using test id
+    await page.getByTestId("play-btn").click();
+    await page.getByTestId("status-badge").waitFor({ state: "visible" });
+    await page.waitForSelector('[data-testid="status-badge"].live', { timeout: 5000 });
 
     // Wait for audio stream and visualizer to be active
     await page.waitForTimeout(1500);

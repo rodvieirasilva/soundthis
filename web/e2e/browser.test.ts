@@ -117,8 +117,8 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await expect(headerTitle).toHaveText("SoundThis");
 
     // 2. Initial state: Play button is ready
-    const playBtn = page.locator("#play-btn");
-    const playBtnText = page.locator("#play-btn-text");
+    const playBtn = page.getByTestId("play-btn");
+    const playBtnText = page.getByTestId("play-btn-text");
     await expect(playBtn).toBeVisible();
     await expect(playBtnText).toHaveText("Listen Live");
 
@@ -126,7 +126,7 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await playBtn.click();
     await expect(playBtnText).toHaveText("Pause Audio");
 
-    const statusBadge = page.locator("#status-badge");
+    const statusBadge = page.getByTestId("status-badge");
     await expect(statusBadge).toHaveClass(/live/);
     await expect(statusBadge).toContainText("Live");
 
@@ -134,14 +134,14 @@ test.describe("Browser E2E SoundThis Integration", () => {
     playTestSound(testWavPath);
 
     // 5. Verify audio stats update in the browser
-    const statsText = page.locator("#stats-text");
+    const statsText = page.getByTestId("stats-text");
     await expect(statsText).toContainText("48kHz", { timeout: 8000 });
 
     // 6. Test visualizer animation mode toggles
-    const waveBtn = page.locator('.viz-btn[data-mode="wave"]');
-    const lineBtn = page.locator('.viz-btn[data-mode="line"]');
-    const offBtn = page.locator('.viz-btn[data-mode="off"]');
-    const barsBtn = page.locator('.viz-btn[data-mode="bars"]');
+    const waveBtn = page.getByTestId("viz-mode-wave");
+    const lineBtn = page.getByTestId("viz-mode-line");
+    const offBtn = page.getByTestId("viz-mode-off");
+    const barsBtn = page.getByTestId("viz-mode-bars");
 
     await waveBtn.click();
     await expect(waveBtn).toHaveClass(/active/);
@@ -156,7 +156,7 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await expect(barsBtn).toHaveClass(/active/);
 
     // 7. Test client name update
-    const nameInput = page.locator("#client-name-input");
+    const nameInput = page.getByTestId("client-name-input");
     await nameInput.fill("Automated Chromium Test");
     await nameInput.press("Enter");
     await page.waitForTimeout(100);
@@ -185,8 +185,8 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await cdp.send("Performance.enable");
 
     await page.goto(`http://127.0.0.1:${testPort}/`);
-    await page.locator("#play-btn").click();
-    await expect(page.locator("#status-badge")).toHaveClass(/live/);
+    await page.getByTestId("play-btn").click();
+    await expect(page.getByTestId("status-badge")).toHaveClass(/live/);
 
     // Allow connection and AudioContext to warm up
     await page.waitForTimeout(500);

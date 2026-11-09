@@ -37,6 +37,7 @@ run = "npm run test:e2e"
 
 [tasks.screenshots]
 description = "Generate updated UI screenshots for documentation"
+depends = ["build"]
 dir = "web"
 run = "npm run screenshots"
 
