@@ -35,6 +35,11 @@ description = "Run Playwright browser integration tests with Linux audio"
 dir = "web"
 run = "npm run test:e2e"
 
+[tasks.screenshots]
+description = "Generate updated UI screenshots for documentation"
+dir = "web"
+run = "npm run screenshots"
+
 [tasks."test:server"]
 description = "Run Rust unit and integration tests"
 run = "cargo test"

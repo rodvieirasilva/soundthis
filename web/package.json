@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "screenshots": "node scripts/capture-screenshots.mjs",
     "lint": "eslint 'src/**/*.{ts,tsx}'"
   },
   "devDependencies": {
