@@ -31,7 +31,7 @@ body:
       description: System details (Omarchy version, Linux kernel, audio server, browser).
       value: |
         - OS: Omarchy Linux
-        - SoundThis Version: 0.2.0
+        - SoundThis Version: 0.3.0
         - Audio Daemon: PipeWire / PulseAudio
         - Browser / Client: Chrome / Firefox / Safari / Mobile
     validations:

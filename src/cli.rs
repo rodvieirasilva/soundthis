@@ -13,7 +13,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[derive(Parser, Debug)]
 #[command(name = "soundthis")]
 #[command(author = "rvs")]
-#[command(version = "0.2.0")]
+#[command(version)]
 #[command(about = "Real-time desktop audio streaming server for Omarchy", long_about = None)]
 pub struct Cli {
     /// Path to custom config.toml

@@ -84,7 +84,7 @@ Pre-built standalone Linux x86_64 binaries are published with every release on [
 #### Option A: Quick Install (curl)
 ```bash
 # Download latest release, extract binary to ~/.local/bin, and configure service
-curl -sL https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.2.0-x86_64-linux.tar.gz | tar -xz -C ~/.local/bin soundthis
+curl -sL https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.3.0-x86_64-linux.tar.gz | tar -xz -C ~/.local/bin soundthis
 soundthis install
 ```
 
