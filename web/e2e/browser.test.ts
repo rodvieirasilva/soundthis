@@ -107,6 +107,57 @@ test.describe("Browser E2E SoundThis Integration", () => {
     }
   });
 
+  test("should load with zero console warnings/errors and zero 404/failed network responses", async ({
+    page,
+  }) => {
+    const consoleIssues: string[] = [];
+    const pageErrors: Error[] = [];
+    const failedResponses: { url: string; status: number }[] = [];
+
+    page.on("console", (msg) => {
+      const type = msg.type();
+      if (type === "error" || type === "warning") {
+        consoleIssues.push(`[${type.toUpperCase()}] ${msg.text()}`);
+      }
+    });
+
+    page.on("pageerror", (err) => {
+      pageErrors.push(err);
+    });
+
+    page.on("response", (res) => {
+      if (res.status() >= 400) {
+        failedResponses.push({ url: res.url(), status: res.status() });
+      }
+    });
+
+    // 1. Navigate to player
+    await page.goto(`http://127.0.0.1:${testPort}/`);
+    await page.waitForLoadState("networkidle");
+
+    // 2. Verify favicon endpoints directly
+    const svgRes = await page.request.get(`http://127.0.0.1:${testPort}/favicon.svg`);
+    expect(svgRes.status()).toBe(200);
+    expect(svgRes.headers()["content-type"]).toContain("image/svg+xml");
+
+    const icoRes = await page.request.get(`http://127.0.0.1:${testPort}/favicon.ico`);
+    expect(icoRes.status()).toBe(200);
+
+    // 3. User interaction
+    await page.getByTestId("play-btn").click();
+    await expect(page.getByTestId("status-badge")).toHaveClass(/live/);
+    await page.waitForTimeout(500);
+
+    // 4. Assert zero console warnings or errors
+    expect(consoleIssues).toEqual([]);
+
+    // 5. Assert zero uncaught page errors
+    expect(pageErrors).toEqual([]);
+
+    // 6. Assert zero failed 4xx/5xx network requests
+    expect(failedResponses).toEqual([]);
+  });
+
   test("should load player UI, interact with controls, and stream desktop sound", async ({ page }) => {
     // 1. Navigate to embedded SoundThis singlefile client
     await page.goto(`http://127.0.0.1:${testPort}/`);

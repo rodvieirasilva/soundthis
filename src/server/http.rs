@@ -6,7 +6,7 @@ use axum::{
 
 const INDEX_HTML: &str = include_str!("../../web/dist/index.html");
 const FAVICON_SVG: &str = include_str!("../../web/src/assets/icons/logo.svg");
-const FAVICON_ICO: &[u8] = include_bytes!("../../web/favicon.ico");
+const FAVICON_ICO: &[u8] = include_bytes!("../../assets/favicon.ico");
 
 pub fn validate_assets() -> Result<(), crate::error::SoundThisError> {
     if INDEX_HTML.trim().is_empty() {

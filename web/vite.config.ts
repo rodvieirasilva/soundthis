@@ -9,48 +9,14 @@ function inlineSvgPlugin(): Plugin {
     name: "inline-svg-plugin",
     enforce: "pre",
     transformIndexHtml(html) {
-      let transformed = html.replace(/<svg-icon\s+([^>]*?)(?:><\/svg-icon>|\/>)/gi, (_, attrStr) => {
-        const srcMatch = attrStr.match(/src=["']([^"']+)["']/i);
-        if (!srcMatch) return "";
-        const src = srcMatch[1];
+      return html.replace(/<svg-icon\s+([^>]*?)><\/svg-icon>/gi, (_, attrStr) => {
+        const src = attrStr.match(/src=["']([^"']+)["']/i)?.[1];
+        if (!src) return "";
         const filePath = path.resolve(import.meta.dirname, src);
-
-        if (!fs.existsSync(filePath)) {
-          throw new Error(`SVG file not found: ${filePath}`);
-        }
-
-        let svgContent = fs.readFileSync(filePath, "utf-8").trim();
-        const otherAttrs = attrStr.replace(/src=["']([^"']+)["']/i, "").trim();
-
-        if (otherAttrs) {
-          svgContent = svgContent.replace(/<svg\b([^>]*)>/i, `<svg$1 ${otherAttrs}>`);
-        }
-
-        return svgContent;
+        const svgContent = fs.readFileSync(filePath, "utf-8").trim();
+        const otherAttrs = attrStr.replace(/src=["'][^"']+["']/i, "").trim();
+        return svgContent.replace(/<svg\b([^>]*)>/i, `<svg$1 ${otherAttrs}>`);
       });
-
-      // Inline favicon SVG as a Data URI to avoid external hashed asset files
-      const logoSvgPath = path.resolve(import.meta.dirname, "src/assets/icons/logo.svg");
-      if (fs.existsSync(logoSvgPath)) {
-        const svgContent = fs.readFileSync(logoSvgPath, "utf-8").trim();
-        const svgBase64 = Buffer.from(svgContent).toString("base64");
-        transformed = transformed.replace(
-          /<link\s+[^>]*rel=["']icon["'][^>]*>/gi,
-          `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${svgBase64}">`
-        );
-      }
-
-      // Inline fallback favicon.ico as a Data URI
-      const icoPath = path.resolve(import.meta.dirname, "favicon.ico");
-      if (fs.existsSync(icoPath)) {
-        const icoBase64 = fs.readFileSync(icoPath).toString("base64");
-        transformed = transformed.replace(
-          /<link\s+[^>]*rel=["']alternate icon["'][^>]*>/gi,
-          `<link rel="alternate icon" href="data:image/x-icon;base64,${icoBase64}">`
-        );
-      }
-
-      return transformed;
     },
   };
 }
