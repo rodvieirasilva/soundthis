@@ -68,6 +68,7 @@ pub fn build_app(
         .route("/", get(http::handle_index))
         .route("/favicon.svg", get(http::handle_favicon_svg))
         .route("/favicon.ico", get(http::handle_favicon_ico))
+        .route("/favicon-{file}", get(http::handle_favicon_fallback))
         .route("/health", get(http::handle_health))
         // API routes
         .route("/api/status", get(http::handle_api_status))

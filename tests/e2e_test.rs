@@ -82,6 +82,99 @@ async fn test_e2e_websocket_streaming_and_client_lifecycle() {
 }
 
 #[tokio::test]
+async fn test_e2e_websocket_paused_client_does_not_receive_binary_audio() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let state = AppState::new(addr.port(), "127.0.0.1".into(), Protocol::Http);
+    let broadcaster = Arc::new(AudioBroadcaster::new());
+    let config = ServerConfig::default();
+
+    let app = build_app(state.clone(), broadcaster.clone(), &config);
+
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+
+    // Connect with ?listen=0 (paused by default, like web browser opening)
+    let ws_url = format!("ws://{addr}/ws?listen=0");
+    let (mut ws_stream, _) = connect_async(ws_url).await.unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    let clients = state.get_clients().await;
+    assert_eq!(clients.len(), 1);
+    assert!(!clients[0].listening);
+
+    // Broadcast audio chunk: paused client MUST NOT receive binary frame
+    let fake_pcm = vec![11u8, 22u8, 33u8, 44u8];
+    broadcaster.broadcast_chunk(Arc::new(fake_pcm.clone()));
+
+    let res = tokio::time::timeout(tokio::time::Duration::from_millis(150), ws_stream.next()).await;
+    assert!(
+        res.is_err(),
+        "Expected timeout: paused client should not receive binary audio"
+    );
+
+    // Client resumes listening
+    let resume_payload = serde_json::json!({
+        "type": "playback",
+        "playing": true
+    });
+    ws_stream
+        .send(Message::Text(resume_payload.to_string().into()))
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    let clients = state.get_clients().await;
+    assert!(clients[0].listening);
+
+    // Broadcast audio chunk: active client DOES receive binary frame
+    broadcaster.broadcast_chunk(Arc::new(fake_pcm.clone()));
+    let msg = tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+        .await
+        .expect("Timeout waiting for audio message")
+        .expect("Stream ended")
+        .expect("WS error");
+
+    match msg {
+        Message::Binary(bin) => {
+            assert_eq!(bin.as_ref(), fake_pcm.as_slice());
+        }
+        other => panic!("Expected Binary message, got: {:?}", other),
+    }
+
+    // Client pauses listening
+    let pause_payload = serde_json::json!({
+        "type": "playback",
+        "playing": false
+    });
+    ws_stream
+        .send(Message::Text(pause_payload.to_string().into()))
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    let clients = state.get_clients().await;
+    assert!(!clients[0].listening);
+
+    // Broadcast audio chunk: paused client MUST NOT receive binary frame
+    broadcaster.broadcast_chunk(Arc::new(fake_pcm.clone()));
+    let res = tokio::time::timeout(tokio::time::Duration::from_millis(150), ws_stream.next()).await;
+    assert!(
+        res.is_err(),
+        "Expected timeout: paused client should not receive binary audio"
+    );
+
+    ws_stream.close(None).await.unwrap();
+}
+
+#[tokio::test]
 async fn test_e2e_stream_enable_disable_lifecycle() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -184,6 +277,7 @@ async fn test_e2e_cli_remote_control() {
             name: "Living Room Speaker".into(),
             ip: "127.0.0.1".into(),
             connected_at: 100,
+            listening: true,
         })
         .await;
 

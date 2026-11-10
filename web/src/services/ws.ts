@@ -11,19 +11,21 @@ export class AudioWebSocketClient {
   private callbacks: WSClientCallbacks;
   private reconnectTimer: number | null = null;
   private shouldConnect = true;
+  private isListening = false;
 
   constructor(callbacks: WSClientCallbacks) {
     this.callbacks = callbacks;
   }
 
-  public connect(): void {
+  public connect(listen = false): void {
     this.shouldConnect = true;
+    this.isListening = listen;
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${window.location.host}/ws`;
+    const url = `${proto}//${window.location.host}/ws?listen=${listen ? "1" : "0"}`;
 
     try {
       this.ws = new WebSocket(url);
@@ -33,6 +35,9 @@ export class AudioWebSocketClient {
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;
+        }
+        if (this.isListening) {
+          this.setPlaybackState(true);
         }
         this.callbacks.onOpen();
       };
@@ -71,6 +76,13 @@ export class AudioWebSocketClient {
     }
   }
 
+  public setPlaybackState(playing: boolean): void {
+    this.isListening = playing;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "playback", playing }));
+    }
+  }
+
   public disconnect(): void {
     this.shouldConnect = false;
     if (this.reconnectTimer) {
@@ -88,7 +100,7 @@ export class AudioWebSocketClient {
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       if (this.shouldConnect) {
-        this.connect();
+        this.connect(this.isListening);
       }
     }, 1500);
   }

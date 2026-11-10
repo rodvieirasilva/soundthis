@@ -9,7 +9,7 @@ function inlineSvgPlugin(): Plugin {
     name: "inline-svg-plugin",
     enforce: "pre",
     transformIndexHtml(html) {
-      return html.replace(/<svg-icon\s+([^>]*?)(?:><\/svg-icon>|\/>)/gi, (_, attrStr) => {
+      let transformed = html.replace(/<svg-icon\s+([^>]*?)(?:><\/svg-icon>|\/>)/gi, (_, attrStr) => {
         const srcMatch = attrStr.match(/src=["']([^"']+)["']/i);
         if (!srcMatch) return "";
         const src = srcMatch[1];
@@ -28,6 +28,29 @@ function inlineSvgPlugin(): Plugin {
 
         return svgContent;
       });
+
+      // Inline favicon SVG as a Data URI to avoid external hashed asset files
+      const logoSvgPath = path.resolve(import.meta.dirname, "src/assets/icons/logo.svg");
+      if (fs.existsSync(logoSvgPath)) {
+        const svgContent = fs.readFileSync(logoSvgPath, "utf-8").trim();
+        const svgBase64 = Buffer.from(svgContent).toString("base64");
+        transformed = transformed.replace(
+          /<link\s+[^>]*rel=["']icon["'][^>]*>/gi,
+          `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${svgBase64}">`
+        );
+      }
+
+      // Inline fallback favicon.ico as a Data URI
+      const icoPath = path.resolve(import.meta.dirname, "favicon.ico");
+      if (fs.existsSync(icoPath)) {
+        const icoBase64 = fs.readFileSync(icoPath).toString("base64");
+        transformed = transformed.replace(
+          /<link\s+[^>]*rel=["']alternate icon["'][^>]*>/gi,
+          `<link rel="alternate icon" href="data:image/x-icon;base64,${icoBase64}">`
+        );
+      }
+
+      return transformed;
     },
   };
 }

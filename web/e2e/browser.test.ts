@@ -116,11 +116,21 @@ test.describe("Browser E2E SoundThis Integration", () => {
     const headerTitle = page.locator(".logo-text h1");
     await expect(headerTitle).toHaveText("SoundThis");
 
-    // 2. Initial state: Play button is ready
+    // 2. Initial state: Play button is ready and player is paused
     const playBtn = page.getByTestId("play-btn");
     const playBtnText = page.getByTestId("play-btn-text");
     await expect(playBtn).toBeVisible();
     await expect(playBtnText).toHaveText("Listen Live");
+
+    // While paused, verify no binary audio messages are processed
+    const statsText = page.getByTestId("stats-text");
+    await expect(statsText).toHaveText("48kHz Stereo • 16-bit PCM");
+
+    // Play test audio on Linux desktop while player is paused
+    playTestSound(testWavPath);
+    await page.waitForTimeout(500);
+    // Stats must remain clean and unaccumulated while paused
+    await expect(statsText).toHaveText("48kHz Stereo • 16-bit PCM");
 
     // 3. User clicks Listen Live
     await playBtn.click();
@@ -130,11 +140,10 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await expect(statusBadge).toHaveClass(/live/);
     await expect(statusBadge).toContainText("Live");
 
-    // 4. Play a test sound via Linux audio command tool
+    // 4. Play test sound while listening
     playTestSound(testWavPath);
 
     // 5. Verify audio stats update in the browser
-    const statsText = page.getByTestId("stats-text");
     await expect(statsText).toContainText("48kHz", { timeout: 8000 });
 
     // 6. Test visualizer animation mode toggles

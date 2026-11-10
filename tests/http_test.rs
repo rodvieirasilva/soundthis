@@ -26,6 +26,7 @@ async fn test_app_state_management() {
         name: "Test Browser".into(),
         ip: "127.0.0.1".into(),
         connected_at: 1000,
+        listening: true,
     };
 
     state.add_client(client_info).await;
@@ -113,6 +114,53 @@ async fn test_http_api_routes() {
         response.headers().get("content-type").unwrap(),
         "image/x-icon"
     );
+
+    // Test hashed fallback: /favicon-BiVrq98m.svg
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/favicon-BiVrq98m.svg")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "image/svg+xml"
+    );
+
+    // Test hashed fallback: /favicon-nc31v7o9.ico
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/favicon-nc31v7o9.ico")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "image/x-icon"
+    );
+
+    // Test invalid fallback: /favicon-unknown.txt returns 404
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/favicon-unknown.txt")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // Test /api/status
     let response = app

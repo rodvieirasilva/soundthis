@@ -164,7 +164,9 @@ pub async fn cmd_status(config: &ServerConfig) -> Result<(), Box<dyn std::error:
                 for c in list {
                     let name = c["name"].as_str().unwrap_or("Device");
                     let ip = c["ip"].as_str().unwrap_or("unknown");
-                    println!("    - {} ({})", name, ip);
+                    let listening = c["listening"].as_bool().unwrap_or(true);
+                    let state_str = if listening { "Listening" } else { "Paused" };
+                    println!("    - {} ({}) [{}]", name, ip, state_str);
                 }
             }
         }

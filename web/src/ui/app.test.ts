@@ -271,4 +271,21 @@ describe("SoundThisApp", () => {
 
     getByteFreqSpy.mockRestore();
   });
+
+  it("should ignore audio data when paused and only process when playing", async () => {
+    const app = new SoundThisApp();
+    app.init();
+
+    const buffer = new ArrayBuffer(16);
+    const player = (app as unknown as { player: { getStats: () => { packetsReceived: number } } }).player;
+
+    // When paused: no packets processed
+    (app as unknown as { handleAudioData: (b: ArrayBuffer) => void }).handleAudioData(buffer);
+    expect(player.getStats().packetsReceived).toBe(0);
+
+    // When playing: packets processed
+    await (app as unknown as { togglePlayback: () => Promise<void> }).togglePlayback();
+    (app as unknown as { handleAudioData: (b: ArrayBuffer) => void }).handleAudioData(buffer);
+    expect(player.getStats().packetsReceived).toBe(1);
+  });
 });

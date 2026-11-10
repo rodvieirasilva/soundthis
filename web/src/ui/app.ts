@@ -54,7 +54,7 @@ export class SoundThisApp {
     this.setVisualizerMode(savedMode);
 
     this.setStatus("connecting");
-    this.wsClient.connect();
+    this.wsClient.connect(false);
   }
 
   private bindDOMElements(): void {
@@ -115,6 +115,7 @@ export class SoundThisApp {
     const isPlaying = this.player.getIsPlaying();
     if (isPlaying) {
       this.player.setPlaying(false);
+      this.wsClient.setPlaybackState(false);
       this.visualizer.setLive(false);
       this.updatePlayButton(false);
       if (this.status === "live") {
@@ -124,6 +125,7 @@ export class SoundThisApp {
       await this.player.init();
       this.visualizer.setAnalyser(this.player.getAnalyser());
       this.player.setPlaying(true);
+      this.wsClient.setPlaybackState(true);
       this.visualizer.setLive(true);
       this.updatePlayButton(true);
       if (this.status === "paused" || this.status === "connecting") {
@@ -167,15 +169,16 @@ export class SoundThisApp {
   }
 
   private handleAudioData(buffer: ArrayBuffer): void {
+    if (!this.player.getIsPlaying()) {
+      return;
+    }
     this.player.feedPCM(buffer);
-    if (this.player.getIsPlaying()) {
-      if (this.status !== "live") {
-        this.setStatus("live");
-      }
-      if (!this.visualizer.isLiveActive()) {
-        this.visualizer.setAnalyser(this.player.getAnalyser());
-        this.visualizer.setLive(true);
-      }
+    if (this.status !== "live") {
+      this.setStatus("live");
+    }
+    if (!this.visualizer.isLiveActive()) {
+      this.visualizer.setAnalyser(this.player.getAnalyser());
+      this.visualizer.setLive(true);
     }
   }
 
@@ -184,6 +187,7 @@ export class SoundThisApp {
     this.wsClient.sendClientName(name);
 
     if (this.player.getIsPlaying()) {
+      this.wsClient.setPlaybackState(true);
       this.setStatus("live");
     } else {
       this.setStatus("paused");

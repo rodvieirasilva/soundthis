@@ -11,6 +11,12 @@ pub struct ClientInfo {
     pub name: String,
     pub ip: String,
     pub connected_at: u64,
+    #[serde(default = "default_listening")]
+    pub listening: bool,
+}
+
+fn default_listening() -> bool {
+    true
 }
 
 #[derive(Clone)]
@@ -66,6 +72,13 @@ impl AppState {
         let mut map = self.clients.write().await;
         if let Some(client) = map.get_mut(id) {
             client.name = name;
+        }
+    }
+
+    pub async fn update_client_listening(&self, id: &str, listening: bool) {
+        let mut map = self.clients.write().await;
+        if let Some(client) = map.get_mut(id) {
+            client.listening = listening;
         }
     }
 

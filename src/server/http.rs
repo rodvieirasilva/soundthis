@@ -62,6 +62,44 @@ pub async fn handle_favicon_ico() -> impl IntoResponse {
     )
 }
 
+pub async fn handle_favicon_fallback(
+    axum::extract::Path(file): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    if file.ends_with(".svg") {
+        (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("image/svg+xml"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=86400"),
+                ),
+            ],
+            FAVICON_SVG,
+        )
+            .into_response()
+    } else if file.ends_with(".ico") {
+        (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("image/x-icon"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=86400"),
+                ),
+            ],
+            FAVICON_ICO,
+        )
+            .into_response()
+    } else {
+        (axum::http::StatusCode::NOT_FOUND, "Not Found").into_response()
+    }
+}
+
 pub async fn handle_health() -> &'static str {
     "OK"
 }

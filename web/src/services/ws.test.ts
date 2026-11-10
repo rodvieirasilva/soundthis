@@ -74,6 +74,22 @@ describe("AudioWebSocketClient", () => {
     expect(callbacks.onClose).toHaveBeenCalled();
   });
 
+  it("should send playback state message when toggling playback", async () => {
+    const client = new AudioWebSocketClient(callbacks);
+    client.connect(false);
+
+    await new Promise((r) => setTimeout(r, 20));
+    const ws = (client as unknown as { ws: MockWebSocket }).ws;
+
+    client.setPlaybackState(true);
+    expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: "playback", playing: true }));
+
+    client.setPlaybackState(false);
+    expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: "playback", playing: false }));
+
+    client.disconnect();
+  });
+
   it("should handle error event and schedule reconnect", () => {
     vi.useFakeTimers();
     const client = new AudioWebSocketClient(callbacks);
