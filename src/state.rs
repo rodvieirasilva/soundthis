@@ -32,6 +32,7 @@ pub struct AppState {
 pub struct StatusResponse {
     pub online: bool,
     pub enabled: bool,
+    pub version: &'static str,
     pub protocol: &'static str,
     pub port: u16,
     pub lan_ip: String,
@@ -104,6 +105,7 @@ impl AppState {
         StatusResponse {
             online: true,
             enabled: self.is_enabled(),
+            version: env!("CARGO_PKG_VERSION"),
             protocol: scheme,
             port: self.port,
             lan_ip,

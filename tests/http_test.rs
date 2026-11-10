@@ -43,6 +43,7 @@ async fn test_app_state_management() {
     let status = state.to_status_response().await;
     assert_eq!(status.url, "http://192.168.1.100:9697");
     assert_eq!(status.protocol, "http");
+    assert_eq!(status.version, env!("CARGO_PKG_VERSION"));
 
     state.remove_client("127.0.0.1:1234").await;
     assert_eq!(state.get_clients().await.len(), 0);

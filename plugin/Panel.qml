@@ -21,6 +21,7 @@ Panel {
   property var clients: []
   property string lanIp: "127.0.0.1"
   property int port: 9697
+  property string version: "0.3.1"
 
   readonly property color foreground: bar ? bar.barForeground : Commons.Color.foreground
   readonly property string clientUrl: "http://" + lanIp + ":" + port
@@ -79,6 +80,7 @@ Panel {
           root.port = data.port || 9697
           root.clients = data.clients || []
           root.clientCount = root.clients.length
+          if (data.version) root.version = data.version
         } catch (e) {
           root.serverOnline = false
         }
@@ -106,9 +108,9 @@ Panel {
     opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.35
     tooltipText: root.serverOnline
       ? (root.serverEnabled
-          ? "SoundThis: Sharing on " + root.clientUrl + (root.clientCount > 0 ? " (" + root.clientCount + " listening)" : "")
-          : "SoundThis: Sharing Disabled (Right-click to enable)")
-      : "SoundThis: Server Offline (Click to open)"
+          ? "SoundThis v" + root.version + ": Sharing on " + root.clientUrl + (root.clientCount > 0 ? " (" + root.clientCount + " listening)" : "")
+          : "SoundThis v" + root.version + ": Sharing Disabled (Right-click to enable)")
+      : "SoundThis v" + root.version + ": Server Offline (Click to open)"
 
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton || buttonCode === Qt.MiddleButton) {
@@ -149,7 +151,7 @@ Panel {
           meta: !root.serverOnline
             ? "Server offline"
             : (root.serverEnabled ? "Broadcasting live" : "Audio sharing disabled")
-          detail: root.serverOnline ? (":" + root.port) : ""
+          detail: "v" + root.version
           foreground: root.foreground
 
           iconComponent: Component {
@@ -315,6 +317,29 @@ Panel {
           iconText: "󰐍"
           bordered: true
           onClicked: root.startServer()
+        }
+
+        PanelSeparator { foreground: root.foreground }
+
+        // Footer matching webpage
+        RowLayout {
+          width: parent.width
+          Text {
+            Layout.fillWidth: true
+            text: "48kHz Stereo • 16-bit PCM"
+            textFormat: Text.PlainText
+            color: Qt.darker(root.foreground, 1.8)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+          Text {
+            text: "v" + root.version
+            textFormat: Text.PlainText
+            color: Commons.Color.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
         }
       }
     }
