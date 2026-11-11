@@ -124,18 +124,11 @@ async function main() {
     await page.screenshot({ path: mobilePath });
     console.log(`Saved mobile screenshot: ${mobilePath}`);
 
-    // Omarchy desktop panel screenshot (when quickshell and grim are available)
+    // Omarchy desktop panel screenshot (via capture-widget.sh)
     try {
-      const pid = execSync("pgrep -x quickshell 2>/dev/null || true").toString().trim().split("\n")[0];
-      if (pid && fs.existsSync("/usr/bin/grim")) {
-        execSync(`qs ipc --pid "${pid}" call soundthis open 2>/dev/null || true`);
-        await new Promise((r) => setTimeout(r, 600));
-        const panelPath = path.join(rootDir, "docs/screenshots/omarchy-panel.png");
-        execSync(`grim -g "980,22 380x385" "${panelPath}" 2>/dev/null || true`);
-        execSync(`qs ipc --pid "${pid}" call soundthis close 2>/dev/null || true`);
-        if (fs.existsSync(panelPath)) {
-          console.log(`Saved Omarchy panel screenshot: ${panelPath}`);
-        }
+      const widgetScript = path.join(rootDir, "scripts/capture-widget.sh");
+      if (fs.existsSync(widgetScript)) {
+        execSync(`bash "${widgetScript}"`, { stdio: "inherit" });
       }
     } catch {
       // Ignore if running in headless CI without graphical quickshell session
