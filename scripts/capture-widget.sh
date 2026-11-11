@@ -34,9 +34,10 @@ MON_X=$(echo "$FOCUSED" | jq -r '.x')
 MON_Y=$(echo "$FOCUSED" | jq -r '.y')
 MON_W=$(echo "$FOCUSED" | jq -r '.width')
 
-X=$(( MON_X + MON_W - 386 ))
+# Card is positioned near right margin with padding
+X=$(( MON_X + MON_W - 422 ))
 Y=$(( MON_Y + 22 ))
-GEOM="${X},${Y} 380x385"
+GEOM="${X},${Y} 415x410"
 
 # 5. Open widget via quickshell IPC
 qs ipc --pid "$PID" call soundthis open
