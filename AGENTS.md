@@ -165,11 +165,6 @@ mise run screenshots
 
 ## 5. Git Commit & Authorship Standards
 
-- **Author & Committer Identity**:
-  All commits MUST use:
-  ```text
-  Rodrigo Vieira <rodvieirasilva@gmail.com>
-  ```
 - **Commit Message Format**:
   Follow Conventional Commits:
   - `feat: ...` for new features
