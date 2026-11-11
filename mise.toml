@@ -35,11 +35,19 @@ description = "Run Playwright browser integration tests with Linux audio"
 dir = "web"
 run = "npm run test:e2e"
 
-[tasks.screenshots]
-description = "Generate updated UI screenshots for documentation"
+[tasks."screenshots:web"]
+description = "Generate updated web player screenshots (desktop & mobile)"
 depends = ["build"]
 dir = "web"
-run = "npm run screenshots"
+run = "node scripts/capture-screenshots.mjs"
+
+[tasks."screenshots:widget"]
+description = "Capture live Omarchy desktop bar widget and popout panel screenshot"
+run = "./scripts/capture-widget.sh"
+
+[tasks.screenshots]
+description = "Generate complete set of documentation screenshots (web & desktop widget)"
+depends = ["screenshots:web", "screenshots:widget"]
 
 [tasks."test:server"]
 description = "Run Rust unit and integration tests"
@@ -99,3 +107,24 @@ run = "soundthis toggle"
 [tasks.open]
 description = "Open the web player in the default browser"
 run = "soundthis open"
+
+[tasks."shell:restart"]
+description = "Restart the Omarchy desktop shell to reload QML bar widgets"
+run = "omarchy restart shell"
+
+[tasks.reinstall]
+description = "Compile release binary, update ~/.cargo/bin, reinstall service/plugin, and reload Omarchy shell"
+depends = ["build"]
+run = "cp --remove-destination target/release/soundthis ~/.cargo/bin/soundthis && soundthis install && omarchy restart shell"
+
+[tasks."service:logs"]
+description = "Tail systemd user service logs for soundthis"
+run = "journalctl --user -u soundthis -f -n 50"
+
+[tasks."service:restart"]
+description = "Restart the systemd user service for soundthis"
+run = "systemctl --user restart soundthis"
+
+[tasks."service:status"]
+description = "Check systemd user service status for soundthis"
+run = "systemctl --user status soundthis"
