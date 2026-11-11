@@ -151,7 +151,6 @@ Panel {
           meta: !root.serverOnline
             ? "Server offline"
             : (root.serverEnabled ? "Broadcasting live" : "Audio sharing disabled")
-          detail: "v" + root.version
           foreground: root.foreground
 
           iconComponent: Component {
