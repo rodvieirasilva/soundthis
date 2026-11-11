@@ -24,6 +24,8 @@ soundthis/
 │   └── workflows/
 │       ├── ci.yml                 # Continuous integration (lint, test, coverage, build)
 │       └── release.yml            # Automated GitHub releases on v* git tags
+├── assets/
+│   └── favicon.ico                # Root-level server icon (served directly by Axum)
 ├── config/
 │   └── config.toml.template       # External template for ~/.config/soundthis/config.toml
 ├── docs/
@@ -31,6 +33,8 @@ soundthis/
 ├── plugin/
 │   ├── manifest.json              # Omarchy shell plugin manifest
 │   └── Panel.qml                  # Omarchy desktop bar widget and popout panel
+├── scripts/
+│   └── capture-widget.sh          # Desktop widget screenshot automation via grim & quickshell
 ├── systemd/
 │   └── soundthis.service.template # Systemd user service template with %BIN_PATH%
 ├── src/
@@ -64,6 +68,10 @@ soundthis/
 │   ├── index.html                 # Frontend HTML shell
 │   ├── vite.config.ts             # Vite singlefile bundler + inline SVG plugin
 │   ├── package.json               # Frontend dependencies and scripts
+│   ├── e2e/
+│   │   └── browser.test.ts        # Playwright E2E browser tests (sound, console, memory leaks)
+│   ├── scripts/
+│   │   └── capture-screenshots.mjs# Headless Playwright script for desktop & mobile screenshots
 │   └── src/
 │       ├── main.ts                # Frontend entrypoint
 │       ├── style.css              # Tokyo Night themed UI styles
@@ -99,14 +107,20 @@ soundthis/
   - Icons: `web/src/assets/icons/*.svg`
 - Embedded assets are included at compile time via `include_str!` and accompanied by validation functions (e.g., `ServerConfig::validate_template()`, `Installer::validate_templates()`).
 
-### C. Single Source of Truth for SVGs
+### C. Single Source of Truth for SVGs & Favicons
 - Never duplicate SVG code across HTML, CSS, or TypeScript files.
-- Store icons in `web/src/assets/icons/` and use Vite's `inlineSvgPlugin` to inject `<svg-icon src="..." />` tags into inline `<svg>` elements at build time.
-- The web player logo and the `/favicon.svg` route both source from `web/src/assets/icons/logo.svg`.
+- Store icons in `web/src/assets/icons/` and use Vite's `inlineSvgPlugin` to inject `<svg-icon src="..." />` tags into inline `<svg>` elements at build time. Keep this plugin concise and focused only on SVG tag transformation.
+- The web player logo and the `/favicon.svg` route both source directly from `web/src/assets/icons/logo.svg`.
+- Static binary assets intended for root HTTP serving (e.g. `assets/favicon.ico`) must reside in `assets/`, never in `web/` root. This prevents Vite's Rollup bundler from extracting separate hashed asset files (`favicon-[hash].ico`).
 
 ### D. Zero External Web Runtime Dependencies
 - The web client must build into a single self-contained HTML file (`web/dist/index.html`) using `vite-plugin-singlefile`.
 - No external CDNs, fonts, or external images at runtime. Everything is bundled and served directly by the single Rust binary.
+
+### E. Protocol & Streaming Efficiency
+- **Initial Connection State**: Browsers connect to the WebSocket endpoint initially in a paused state (`?listen=0`).
+- **Zero Audio While Paused**: WebSocket worker loops must discard broadcast audio chunks when a listener is paused or when broadcasting is disabled. Old audio chunks are not buffered during pause, ensuring instant, lag-free playback upon resume.
+- **Dynamic Telemetry**: The `/api/status` endpoint exposes the server version, protocol, streaming state, and listener states (`listening: true/false`).
 
 ---
 
@@ -121,11 +135,15 @@ All pull requests and code modifications must pass the following strict quality 
 | **Rust Formatting** | **100% Compliant** | `cargo fmt --check` |
 | **Web Test Coverage** | **>= 80% Lines & Functions** | `cd web && npm run test:coverage` |
 | **Web ESLint** | **0 Warnings** | `cd web && npm run lint` |
+| **Playwright Browser E2E** | **100% Passing (0 console errors, 0 404s, memory leak free)** | `mise run test:e2e` |
 
-### Running Quality Checks via Mise
+### Running Quality Checks & Lifecycle Tasks via Mise
 ```bash
-# Run all tests
+# Run all unit and integration tests (Rust + Vitest)
 mise run test
+
+# Run browser E2E tests (audio streaming, console errors, memory stability)
+mise run test:e2e
 
 # Check all linters (Rust + TypeScript)
 mise run lint
@@ -135,6 +153,12 @@ mise run coverage
 
 # Format code
 mise run fmt
+
+# Recompile, update cargo binary, install plugin, and reload Omarchy shell
+mise run reinstall
+
+# Refresh documentation screenshots (web desktop/mobile + Omarchy panel)
+mise run screenshots
 ```
 
 ---
@@ -163,5 +187,7 @@ mise run fmt
 Before declaring any task or ticket complete, execute this checklist:
 1. `mise run lint` (or `cargo clippy --all-targets -- -D warnings && cargo fmt --check && cd web && npm run lint`) passes with **0 warnings**.
 2. `mise run test` passes **100% of Rust and Vitest tests**.
-3. `mise run coverage` verifies both Rust and Web suites remain **>= 80%**.
-4. Any new templates, icons, or configurations are created as **external files**, not embedded string constants.
+3. `mise run test:e2e` passes **100% of Playwright browser tests** (verifying zero console warnings/errors and zero 404s).
+4. `mise run coverage` verifies both Rust and Web suites remain **>= 80%**.
+5. Any new templates, icons, or configurations are created as **external files**, not embedded string constants.
+6. If QML or web UI styling changed, update screenshots via `mise run screenshots`.
