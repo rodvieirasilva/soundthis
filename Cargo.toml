@@ -1,6 +1,6 @@
 [package]
 name = "soundthis"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 authors = ["Rodrigo Vieira <rodvieirasilva@gmail.com>"]
 description = "Real-time desktop audio streaming server for Omarchy"

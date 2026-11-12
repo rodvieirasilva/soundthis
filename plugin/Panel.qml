@@ -21,7 +21,7 @@ Panel {
   property var clients: []
   property string lanIp: "127.0.0.1"
   property int port: 9697
-  property string version: "0.3.1"
+  property string version: "0.3.2"
 
   readonly property color foreground: bar ? bar.barForeground : Commons.Color.foreground
   readonly property string clientUrl: "http://" + lanIp + ":" + port
