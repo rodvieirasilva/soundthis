@@ -77,7 +77,16 @@ Other cross-platform tools like **AudioRelay** require installing dedicated nati
 
 ## Installation
 
-### From GitHub Releases (Fastest — No Compilation Required)
+### Via Omarchy Package (Recommended for Omarchy Linux)
+
+```bash
+omarchy pkg add soundthis
+soundthis install
+```
+
+---
+
+### From GitHub Releases (Fastest — Standalone Binary)
 
 Pre-built standalone Linux x86_64 binaries are published with every release on [GitHub Releases](https://github.com/rodvieirasilva/soundthis/releases).
 
