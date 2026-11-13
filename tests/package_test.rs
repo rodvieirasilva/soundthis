@@ -122,10 +122,15 @@ exec "$@"
         fs::set_permissions(&sudo_path, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
+    let runtime_dir = temp_dir.join("run");
+    fs::create_dir_all(&runtime_dir).unwrap();
+    fs::write(runtime_dir.join("wayland-1"), "").unwrap();
+
     let test_runner = format!(
         r#"
         set -eu
         export PATH="{bin_dir}:$PATH"
+        export XDG_RUNTIME_DIR="{runtime_dir}"
         source "{install_script}"
 
         _get_target_users() {{
@@ -159,6 +164,7 @@ exec "$@"
         post_remove
         "#,
         bin_dir = bin_dir.display(),
+        runtime_dir = runtime_dir.display(),
         install_script = install_script.display(),
         shell_json = shell_json_path.display(),
     );
