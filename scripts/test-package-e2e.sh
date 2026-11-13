@@ -37,7 +37,7 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Running inside Arch Linux container..."
 
   # Install required package dependencies
-  pacman -Sy --noconfirm --needed sudo jq pulseaudio-utils
+  pacman -Sy --noconfirm --needed sudo jq libpulse
 
   # Setup unprivileged build user for makepkg
   if ! id -u builder >/dev/null 2>&1; then

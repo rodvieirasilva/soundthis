@@ -13,6 +13,7 @@ fn test_packaging_metadata_and_templates_validity() {
     assert!(pkgbuild.contains("pkgname=soundthis"));
     assert!(pkgbuild.contains("arch=('x86_64' 'aarch64')"));
     assert!(pkgbuild.contains("install=soundthis.install"));
+    assert!(pkgbuild.contains("depends=('gcc-libs' 'glibc' 'libpulse')"));
     assert!(pkgbuild.contains("/usr/bin/soundthis"));
     assert!(pkgbuild.contains("/usr/lib/systemd/user/soundthis.service"));
     assert!(pkgbuild.contains("/usr/lib/systemd/user-preset/90-soundthis.preset"));
