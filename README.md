@@ -79,10 +79,20 @@ Other cross-platform tools like **AudioRelay** require installing dedicated nati
 
 ### Via Omarchy Package (Recommended for Omarchy Linux)
 
+SoundThis provides an automated zero-touch installation. Simply install the package via the Omarchy launcher/store or terminal:
+
 ```bash
 omarchy pkg add soundthis
-soundthis install
 ```
+
+> [!NOTE]
+> Installing the package automatically starts and enables the systemd user service (`soundthis.service`), activates the widget directly on your Omarchy bar, and registers the app in your application launcher. Zero configuration or command-line setup required!
+> 
+> To remove completely:
+> ```bash
+> omarchy pkg drop soundthis
+> ```
+> Uninstallation automatically stops and disables the daemon and removes the widget from your bar.
 
 ---
 
