@@ -8,8 +8,8 @@
 #   (default)    : Local package verification and makepkg build test
 set -euo pipefail
 
-PACKAGE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$PACKAGE_DIR/../.." && pwd)"
+TESTS_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$TESTS_DIR/.." && pwd)"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -29,7 +29,7 @@ if [[ "${1:-}" == "--docker" ]]; then
     -v "$REPO_ROOT:/workspace" \
     -w /workspace \
     archlinux:base-devel \
-    bash -c "/workspace/tests/package/test-package-e2e.sh --container"
+    bash -c "/workspace/tests/test-package-e2e.sh --container"
   exit $?
 fi
 

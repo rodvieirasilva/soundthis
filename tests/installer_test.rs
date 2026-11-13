@@ -39,6 +39,14 @@ fn test_installer_install_and_uninstall_lifecycle() {
     let panel_file = temp_dir.join(".config/omarchy/plugins/soundthis/Panel.qml");
     assert!(panel_file.exists());
 
+    let desktop_file = temp_dir.join(".local/share/applications/soundthis.desktop");
+    assert!(desktop_file.exists());
+    let desktop_content = std::fs::read_to_string(&desktop_file).unwrap();
+    assert!(desktop_content.contains(&fake_bin.to_string_lossy().to_string()));
+
+    let icon_file = temp_dir.join(".local/share/icons/hicolor/scalable/apps/soundthis.svg");
+    assert!(icon_file.exists());
+
     let updated_shell: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(shell_dir.join("shell.json")).unwrap())
             .unwrap();
@@ -52,6 +60,8 @@ fn test_installer_install_and_uninstall_lifecycle() {
     assert!(Installer::uninstall_from(&temp_dir, false).is_ok());
     assert!(!service_file.exists());
     assert!(!manifest_file.exists());
+    assert!(!desktop_file.exists());
+    assert!(!icon_file.exists());
 
     let uninstalled_shell: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(shell_dir.join("shell.json")).unwrap())

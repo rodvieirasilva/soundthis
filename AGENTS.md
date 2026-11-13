@@ -64,8 +64,7 @@ soundthis/
 │   ├── installer_test.rs          # Service/plugin installation lifecycle and idempotency tests
 │   ├── http_test.rs               # Axum routes, CORS headers, and AppState tests
 │   ├── package_test.rs            # Package metadata, staging layout, and lifecycle tests
-│   ├── package/                   # Package E2E lifecycle test runner (zero mocks)
-│   │   └── test-package-e2e.sh    # Real makepkg and pacman lifecycle verification
+│   ├── test-package-e2e.sh        # Real makepkg and pacman lifecycle verification (zero mocks)
 │   └── e2e_test.rs                # End-to-end tests (HTTP, HTTPS, WebSocket streaming, CLI)
 ├── web/
 │   ├── index.html                 # Frontend HTML shell

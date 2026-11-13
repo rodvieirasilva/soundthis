@@ -62,7 +62,6 @@ fn test_packaging_metadata_and_templates_validity() {
 fn test_package_e2e_runner() {
     let script = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
-        .join("package")
         .join("test-package-e2e.sh");
     assert!(
         script.exists(),

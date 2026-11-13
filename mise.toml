@@ -55,11 +55,11 @@ run = "cargo test"
 
 [tasks."test:package"]
 description = "Run end-to-end package install, service enablement, and widget lifecycle tests"
-run = "./tests/package/test-package-e2e.sh"
+run = "./tests/test-package-e2e.sh"
 
 [tasks."test:package:docker"]
 description = "Run real pacman and omarchy CLI install/drop lifecycle tests inside Arch Linux container"
-run = "./tests/package/test-package-e2e.sh --docker"
+run = "./tests/test-package-e2e.sh --docker"
 
 [tasks.test]
 description = "Run all web, server, and package lifecycle tests"

@@ -10,6 +10,8 @@ use tracing::info;
 pub const PLUGIN_MANIFEST: &str = include_str!("../../plugin/manifest.json");
 pub const PLUGIN_PANEL_QML: &str = include_str!("../../plugin/Panel.qml");
 pub const SERVICE_TEMPLATE: &str = include_str!("../../systemd/soundthis.service.template");
+pub const DESKTOP_TEMPLATE: &str = include_str!("../../pkg/soundthis.desktop");
+pub const ICON_SVG: &str = include_str!("../../pkg/soundthis.svg");
 
 pub struct Installer;
 
@@ -44,6 +46,20 @@ impl Installer {
         if !PLUGIN_PANEL_QML.contains("Panel") || !PLUGIN_PANEL_QML.contains("soundthis") {
             return Err(SoundThisError::Installer(
                 "Plugin Panel.qml appears incomplete or corrupted".into(),
+            ));
+        }
+
+        // Validate desktop template and icon
+        if !DESKTOP_TEMPLATE.contains("[Desktop Entry]")
+            || !DESKTOP_TEMPLATE.contains("Name=SoundThis")
+        {
+            return Err(SoundThisError::Installer(
+                "Desktop template missing standard desktop entry sections".into(),
+            ));
+        }
+        if !ICON_SVG.contains("<svg") || !ICON_SVG.contains("</svg>") {
+            return Err(SoundThisError::Installer(
+                "Icon SVG appears incomplete or corrupted".into(),
             ));
         }
 
@@ -140,7 +156,26 @@ impl Installer {
             }
         }
 
-        // 4. Reload Omarchy shell if requested
+        // 4. Install desktop entry and icon
+        let apps_dir = home.join(".local/share/applications");
+        fs::create_dir_all(&apps_dir)?;
+        let desktop_file = apps_dir.join("soundthis.desktop");
+        let desktop_content =
+            DESKTOP_TEMPLATE.replace("/usr/bin/soundthis", &bin_path.to_string_lossy());
+        fs::write(&desktop_file, desktop_content)?;
+        info!("Installed desktop entry to {}", desktop_file.display());
+
+        let icons_dir = home.join(".local/share/icons/hicolor/scalable/apps");
+        fs::create_dir_all(&icons_dir)?;
+        let icon_file = icons_dir.join("soundthis.svg");
+        fs::write(&icon_file, ICON_SVG)?;
+        info!("Installed icon to {}", icon_file.display());
+
+        let _ = Command::new("update-desktop-database")
+            .arg(&apps_dir)
+            .status();
+
+        // 5. Reload Omarchy shell if requested
         if manage_systemd {
             info!("Reloading Omarchy shell...");
             let _ = Command::new("omarchy").args(["restart", "shell"]).status();
@@ -179,7 +214,22 @@ impl Installer {
             info!("Removed {}", plugin_dir.display());
         }
 
-        // 3. Remove from Omarchy shell.json
+        // 3. Remove desktop entry and icon
+        let desktop_file = home.join(".local/share/applications/soundthis.desktop");
+        if desktop_file.exists() {
+            let _ = fs::remove_file(&desktop_file);
+            info!("Removed {}", desktop_file.display());
+            let _ = Command::new("update-desktop-database")
+                .arg(home.join(".local/share/applications"))
+                .status();
+        }
+        let icon_file = home.join(".local/share/icons/hicolor/scalable/apps/soundthis.svg");
+        if icon_file.exists() {
+            let _ = fs::remove_file(&icon_file);
+            info!("Removed {}", icon_file.display());
+        }
+
+        // 4. Remove from Omarchy shell.json
         let shell_config_file = home.join(".config/omarchy/shell.json");
         if shell_config_file.exists() {
             if let Ok(content) = fs::read_to_string(&shell_config_file) {
