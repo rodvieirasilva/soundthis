@@ -67,11 +67,10 @@ fn test_soundthis_install_scriptlet_lifecycle_simulation() {
     let _ = fs::remove_dir_all(&temp_dir);
     fs::create_dir_all(&temp_dir).unwrap();
 
-    let fake_home = temp_dir.join("mock_home");
-    let omarchy_config = fake_home.join(".config/omarchy");
-    fs::create_dir_all(&omarchy_config).unwrap();
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
 
-    let shell_json_path = omarchy_config.join("shell.json");
+    let shell_json_path = temp_dir.join("shell.json");
     let initial_shell = serde_json::json!({
         "bar": {
             "layout": {
@@ -87,23 +86,50 @@ fn test_soundthis_install_scriptlet_lifecycle_simulation() {
     )
     .unwrap();
 
+    // Create mock omarchy-shell
+    let omarchy_shell_mock = format!(
+        r#"#!/bin/bash
+case "$*" in
+  *enablePlugin*soundthis*)
+    jq 'if (.bar.layout.right | any(.id == "soundthis" or . == "soundthis")) then . else .bar.layout.right = [{{"id": "soundthis"}}] + .bar.layout.right end' "{shell_json}" > "{shell_json}.tmp" && mv "{shell_json}.tmp" "{shell_json}"
+    echo "ok"
+    ;;
+  *setPluginEnabled*soundthis*false*)
+    jq '.bar.layout.right = [.bar.layout.right[] | select(.id != "soundthis" and . != "soundthis")]' "{shell_json}" > "{shell_json}.tmp" && mv "{shell_json}.tmp" "{shell_json}"
+    echo "ok"
+    ;;
+esac
+"#,
+        shell_json = shell_json_path.display()
+    );
+    let omarchy_shell_path = bin_dir.join("omarchy-shell");
+    fs::write(&omarchy_shell_path, omarchy_shell_mock).unwrap();
+
+    // Create mock sudo
+    let sudo_mock = r#"#!/bin/bash
+while [[ "$1" == -* ]]; do
+  if [[ "$1" == "-u" ]]; then shift 2; else shift 1; fi
+done
+exec "$@"
+"#;
+    let sudo_path = bin_dir.join("sudo");
+    fs::write(&sudo_path, sudo_mock).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&omarchy_shell_path, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(&sudo_path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
     let test_runner = format!(
         r#"
         set -eu
+        export PATH="{bin_dir}:$PATH"
         source "{install_script}"
 
         _get_target_users() {{
             echo "1000"
-        }}
-        id() {{
-            if [[ "${{1:-}}" == "-nu" ]]; then
-                echo "mockuser"
-            else
-                /usr/bin/id "$@"
-            fi
-        }}
-        getent() {{
-            echo "mockuser:x:1000:1000:Mock:{fake_home}:/bin/bash"
         }}
 
         # 1. Execute post_install
@@ -132,8 +158,8 @@ fn test_soundthis_install_scriptlet_lifecycle_simulation() {
         # 4. Execute post_remove
         post_remove
         "#,
+        bin_dir = bin_dir.display(),
         install_script = install_script.display(),
-        fake_home = fake_home.display(),
         shell_json = shell_json_path.display(),
     );
 

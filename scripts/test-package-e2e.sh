@@ -89,12 +89,6 @@ if [[ "${1:-}" == "--container" ]]; then
   grep -q "enable soundthis.service" /usr/lib/systemd/user-preset/90-soundthis.preset || fail "Preset does not enable soundthis.service"
   success "Systemd user preset correctly enables soundthis.service"
 
-  # Verify widget in shell.json
-  info "Verifying Omarchy shell widget registration in shell.json..."
-  jq -e 'any(.bar.layout.right[]; .id == "soundthis" or . == "soundthis")' "$MOCK_CONFIG_DIR/shell.json" >/dev/null \
-    || fail "Widget was not added to shell.json"
-  success "Widget successfully registered in shell.json"
-
   # 2. Test Package Uninstallation
   info "Uninstalling package with pacman -Rns..."
   SUDO_USER=builder pacman -Rns --nodeps --noconfirm soundthis
@@ -107,12 +101,6 @@ if [[ "${1:-}" == "--container" ]]; then
   [[ ! -f /usr/share/icons/hicolor/scalable/apps/soundthis.svg ]] || fail "SVG icon was not removed"
   [[ ! -d /usr/share/omarchy/shell/plugins/soundthis ]] || fail "Plugin directory was not removed"
   success "All /usr files cleanly removed"
-
-  # Verify widget removal from shell.json
-  if jq -e 'any(.bar.layout.right[]; .id == "soundthis" or . == "soundthis")' "$MOCK_CONFIG_DIR/shell.json" >/dev/null 2>&1; then
-    fail "Widget was not removed from shell.json after pacman -Rns"
-  fi
-  success "Widget cleanly removed from shell.json"
 
   rm -rf "$BUILD_DIR"
   success "Complete package lifecycle test PASSED in Arch Linux container!"
@@ -139,18 +127,43 @@ grep -q "enable soundthis.service" "$REPO_ROOT/pkg/90-soundthis.preset" || fail 
 success "Desktop entry and systemd preset validated"
 
 info "3. Testing scriptlet lifecycle against mock Omarchy environment..."
-MOCK_HOME="$SANDBOX_DIR/home"
-MOCK_CONFIG="$MOCK_HOME/.config/omarchy"
-mkdir -p "$MOCK_CONFIG"
-SHELL_JSON="$MOCK_CONFIG/shell.json"
+BIN_DIR="$SANDBOX_DIR/bin"
+mkdir -p "$BIN_DIR"
+SHELL_JSON="$SANDBOX_DIR/shell.json"
 echo '{"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' > "$SHELL_JSON"
+
+export MOCK_SHELL_JSON="$SHELL_JSON"
+
+cat << 'EOF' > "$BIN_DIR/omarchy-shell"
+#!/usr/bin/env bash
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+case "$*" in
+  *enablePlugin*soundthis*)
+    jq 'if (.bar.layout.right | any(.id == "soundthis" or . == "soundthis")) then . else .bar.layout.right = [{"id": "soundthis"}] + .bar.layout.right end' "$MOCK_SHELL_JSON" > "$MOCK_SHELL_JSON.tmp" && mv "$MOCK_SHELL_JSON.tmp" "$MOCK_SHELL_JSON"
+    echo "ok"
+    ;;
+  *setPluginEnabled*soundthis*false*)
+    jq '.bar.layout.right = [.bar.layout.right[] | select(.id != "soundthis" and . != "soundthis")]' "$MOCK_SHELL_JSON" > "$MOCK_SHELL_JSON.tmp" && mv "$MOCK_SHELL_JSON.tmp" "$MOCK_SHELL_JSON"
+    echo "ok"
+    ;;
+esac
+EOF
+chmod +x "$BIN_DIR/omarchy-shell"
+
+cat << 'EOF' > "$BIN_DIR/sudo"
+#!/usr/bin/env bash
+while [[ "${1:-}" == -* ]]; do
+  if [[ "$1" == "-u" ]]; then shift 2; else shift 1; fi
+done
+exec "$@"
+EOF
+chmod +x "$BIN_DIR/sudo"
 
 bash -c "
   set -eu
+  export PATH=\"$BIN_DIR:\$PATH\"
   source '$REPO_ROOT/pkg/soundthis.install'
   _get_target_users() { echo '1000'; }
-  id() { if [[ \"\${1:-}\" == '-nu' ]]; then echo 'mockuser'; else /usr/bin/id \"\$@\"; fi; }
-  getent() { echo 'mockuser:x:1000:1000:Mock:$MOCK_HOME:/bin/bash'; }
 
   # Test post_install
   post_install
