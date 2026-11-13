@@ -19,6 +19,14 @@ lcov.info
 *.key
 *.crt
 
+# Arch Linux package build artifacts
+pkg/pkg/
+pkg/src/
+*.pkg.tar.*
+pkg/*.tar.gz
+pkg/*.tar.zst
+pkg/*.tar.xz
+
 # IDE and OS files
 .DS_Store
 *.swp
