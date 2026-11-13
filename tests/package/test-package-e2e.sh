@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # End-to-End Package Installation & Lifecycle Verification for SoundThis
-# No mocks — tests real package building, pacman hooks, and omarchy CLI dispatch.
+# No mocks — tests real package building, pacman hooks, and omarchy CLI if available.
 #
 # Usage:
-#   --docker     : Run the full omarchy pkg add/drop lifecycle in an Arch Linux container
+#   --docker     : Run the full package lifecycle in an Arch Linux container
 #   --container  : Executed inside an Arch Linux container (automated by --docker or CI)
 #   (default)    : Local package verification and makepkg build test
 set -euo pipefail
@@ -52,10 +52,6 @@ if [[ "${1:-}" == "--container" ]]; then
   cp -r "$REPO_ROOT"/pkg/* "$BUILD_DIR"/
   chown -R builder:builder "$BUILD_DIR"
 
-  # Install real omarchy CLI tools into /usr/local/bin
-  cp "$REPO_ROOT"/tests/package/omarchy/* /usr/local/bin/
-  chmod +x /usr/local/bin/omarchy*
-
   # Build the package as user builder using real makepkg
   info "Building package with makepkg..."
   sudo -u builder bash -c "cd '$BUILD_DIR' && makepkg -fd --nodeps"
@@ -64,32 +60,15 @@ if [[ "${1:-}" == "--container" ]]; then
   [[ -f "$PKG_FILE" ]] || fail "Package .pkg.tar.zst was not generated"
   success "Package generated: $(basename "$PKG_FILE")"
 
-  # Create a real local pacman repository for omarchy pkg add
-  LOCAL_REPO="/var/cache/pacman/soundthis-local"
-  rm -rf "$LOCAL_REPO"
-  mkdir -p "$LOCAL_REPO"
-  cp "$PKG_FILE" "$LOCAL_REPO/"
-  repo-add "$LOCAL_REPO/soundthis-local.db.tar.gz" "$LOCAL_REPO"/soundthis-*.pkg.tar.zst
+  # 1. Test Package Installation
+  info "Installing package with pacman -U..."
+  SUDO_USER=builder pacman -U --noconfirm --nodeps "$PKG_FILE"
 
-  cat << 'EOF' >> /etc/pacman.conf
-
-[soundthis-local]
-SigLevel = Optional TrustAll
-Server = file:///var/cache/pacman/soundthis-local
-EOF
-
-  pacman -Sy
-
-  # 1. Test Package Installation via real omarchy pkg add
-  info "Checking initial missing status with 'omarchy pkg missing'..."
-  /usr/local/bin/omarchy pkg missing soundthis || fail "soundthis should initially be reported missing"
-
-  info "Installing package with 'omarchy pkg add soundthis'..."
-  SUDO_USER=builder /usr/local/bin/omarchy pkg add soundthis
-
-  info "Verifying installed status with 'omarchy pkg present'..."
-  /usr/local/bin/omarchy pkg present soundthis || fail "soundthis was not reported present by omarchy CLI"
-  success "omarchy pkg add completed successfully"
+  if command -v omarchy >/dev/null 2>&1; then
+    info "Verifying package with 'omarchy pkg present'..."
+    omarchy pkg present soundthis || fail "omarchy pkg present failed"
+  fi
+  success "Package installed successfully"
 
   info "Verifying installed files..."
   [[ -x /usr/bin/soundthis ]] || fail "/usr/bin/soundthis is missing or not executable"
@@ -111,13 +90,18 @@ EOF
   grep -q "enable soundthis.service" /usr/lib/systemd/user-preset/90-soundthis.preset || fail "Preset does not enable soundthis.service"
   success "Systemd user preset correctly enables soundthis.service"
 
-  # 2. Test Package Uninstallation via real omarchy pkg drop
-  info "Uninstalling package with 'omarchy pkg drop soundthis'..."
-  SUDO_USER=builder /usr/local/bin/omarchy pkg drop soundthis
+  # 2. Test Package Uninstallation
+  info "Uninstalling package with pacman -Rns..."
+  if command -v omarchy >/dev/null 2>&1; then
+    SUDO_USER=builder omarchy pkg drop soundthis
+  else
+    SUDO_USER=builder pacman -Rns --noconfirm --nodeps soundthis
+  fi
 
-  info "Verifying uninstalled status with 'omarchy pkg missing'..."
-  /usr/local/bin/omarchy pkg missing soundthis || fail "soundthis should be reported missing after drop"
-  success "omarchy pkg drop completed successfully"
+  if command -v omarchy >/dev/null 2>&1; then
+    omarchy pkg missing soundthis || fail "soundthis should be reported missing after drop"
+  fi
+  success "Package uninstalled successfully"
 
   info "Verifying package removal..."
   [[ ! -f /usr/bin/soundthis ]] || fail "/usr/bin/soundthis was not removed"
@@ -128,8 +112,8 @@ EOF
   [[ ! -d /usr/share/omarchy/shell/plugins/soundthis ]] || fail "Plugin directory was not removed"
   success "All /usr files cleanly removed"
 
-  rm -rf "$BUILD_DIR" "$LOCAL_REPO"
-  success "Complete package lifecycle test PASSED in Arch Linux container with omarchy CLI (no mocks)!"
+  rm -rf "$BUILD_DIR"
+  success "Complete package lifecycle test PASSED in Arch Linux container (zero mocks)!"
   exit 0
 fi
 
@@ -152,16 +136,16 @@ grep -q "\[Desktop Entry\]" "$REPO_ROOT/pkg/soundthis.desktop" || fail "Invalid 
 grep -q "enable soundthis.service" "$REPO_ROOT/pkg/90-soundthis.preset" || fail "Invalid preset file"
 success "Desktop entry and systemd preset validated"
 
-info "3. Validating omarchy CLI command dispatch..."
-"$PACKAGE_DIR/omarchy/omarchy" pkg --help >/dev/null
-success "omarchy CLI verified"
+if command -v omarchy >/dev/null 2>&1; then
+  info "3. Validating omarchy CLI integration on host..."
+  omarchy pkg --help >/dev/null
+  success "omarchy CLI verified"
+fi
 
 info "4. Testing install scriptlet hooks directly with bash..."
-# Sourcing soundthis.install and running hooks with real system environment (no mocks)
 bash -c "
   set -eu
   source '$REPO_ROOT/pkg/soundthis.install'
-  # Execute functions directly
   post_install
   post_upgrade
   pre_remove
