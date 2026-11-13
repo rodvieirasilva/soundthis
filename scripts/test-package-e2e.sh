@@ -129,6 +129,9 @@ success "Desktop entry and systemd preset validated"
 info "3. Testing scriptlet lifecycle against mock Omarchy environment..."
 BIN_DIR="$SANDBOX_DIR/bin"
 mkdir -p "$BIN_DIR"
+MOCK_RUN_DIR="$SANDBOX_DIR/run"
+mkdir -p "$MOCK_RUN_DIR"
+touch "$MOCK_RUN_DIR/wayland-1"
 SHELL_JSON="$SANDBOX_DIR/shell.json"
 echo '{"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' > "$SHELL_JSON"
 
@@ -162,6 +165,7 @@ chmod +x "$BIN_DIR/sudo"
 bash -c "
   set -eu
   export PATH=\"$BIN_DIR:\$PATH\"
+  export XDG_RUNTIME_DIR=\"$MOCK_RUN_DIR\"
   source '$REPO_ROOT/pkg/soundthis.install'
   _get_target_users() { echo '1000'; }
 
