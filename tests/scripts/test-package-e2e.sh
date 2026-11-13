@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # End-to-End Package Installation & Lifecycle Verification for SoundThis
 # Supports:
-#   --docker     : Run the full pacman install/uninstall lifecycle in an Arch Linux container
+#   --docker     : Run the full omarchy pkg add/drop lifecycle in an Arch Linux container
 #   --container  : Executed inside an Arch Linux container (automated by --docker or CI)
 #   (default)    : Local sandbox test validating package build, file layout, and scriptlet lifecycle
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -28,7 +27,7 @@ if [[ "${1:-}" == "--docker" ]]; then
     -v "$REPO_ROOT:/workspace" \
     -w /workspace \
     archlinux:base-devel \
-    bash -c "/workspace/scripts/test-package-e2e.sh --container"
+    bash -c "/workspace/tests/scripts/test-package-e2e.sh --container"
   exit $?
 fi
 
@@ -58,6 +57,14 @@ if [[ "${1:-}" == "--container" ]]; then
   echo '{"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' > "$MOCK_CONFIG_DIR/shell.json"
   chown -R builder:builder "$MOCK_USER_HOME"
 
+  # Setup mock omarchy-shell in /usr/local/bin so scriptlet finds it
+  cp "$REPO_ROOT/tests/scripts/mock-omarchy-shell.sh" /usr/local/bin/omarchy-shell
+  chmod +x /usr/local/bin/omarchy-shell
+
+  # Install omarchy CLI fixtures into /usr/local/bin
+  cp "$REPO_ROOT"/tests/scripts/fixtures/omarchy/* /usr/local/bin/
+  chmod +x /usr/local/bin/omarchy*
+
   # Build the package as user builder
   info "Building package with makepkg..."
   sudo -u builder bash -c "cd '$BUILD_DIR' && makepkg -fd --nodeps"
@@ -66,9 +73,32 @@ if [[ "${1:-}" == "--container" ]]; then
   [[ -f "$PKG_FILE" ]] || fail "Package .pkg.tar.zst was not generated"
   success "Package generated: $(basename "$PKG_FILE")"
 
-  # 1. Test Package Installation
-  info "Installing package with pacman -U..."
-  SUDO_USER=builder pacman -U --nodeps --noconfirm "$PKG_FILE"
+  # Create a local pacman repository for omarchy pkg add
+  LOCAL_REPO="/var/cache/pacman/soundthis-local"
+  rm -rf "$LOCAL_REPO"
+  mkdir -p "$LOCAL_REPO"
+  cp "$PKG_FILE" "$LOCAL_REPO/"
+  repo-add "$LOCAL_REPO/soundthis-local.db.tar.gz" "$LOCAL_REPO"/soundthis-*.pkg.tar.zst
+
+  cat << 'EOF' >> /etc/pacman.conf
+
+[soundthis-local]
+SigLevel = Optional TrustAll
+Server = file:///var/cache/pacman/soundthis-local
+EOF
+
+  pacman -Sy
+
+  # 1. Test Package Installation via omarchy pkg add
+  info "Checking initial missing status with 'omarchy pkg missing'..."
+  /usr/local/bin/omarchy pkg missing soundthis || fail "soundthis should initially be reported missing"
+
+  info "Installing package with 'omarchy pkg add soundthis'..."
+  SUDO_USER=builder /usr/local/bin/omarchy pkg add soundthis
+
+  info "Verifying installed status with 'omarchy pkg present'..."
+  /usr/local/bin/omarchy pkg present soundthis || fail "soundthis was not reported present by omarchy CLI"
+  success "omarchy pkg add completed successfully"
 
   info "Verifying installed files..."
   [[ -x /usr/bin/soundthis ]] || fail "/usr/bin/soundthis is missing or not executable"
@@ -89,9 +119,13 @@ if [[ "${1:-}" == "--container" ]]; then
   grep -q "enable soundthis.service" /usr/lib/systemd/user-preset/90-soundthis.preset || fail "Preset does not enable soundthis.service"
   success "Systemd user preset correctly enables soundthis.service"
 
-  # 2. Test Package Uninstallation
-  info "Uninstalling package with pacman -Rns..."
-  SUDO_USER=builder pacman -Rns --nodeps --noconfirm soundthis
+  # 2. Test Package Uninstallation via omarchy pkg drop
+  info "Uninstalling package with 'omarchy pkg drop soundthis'..."
+  SUDO_USER=builder /usr/local/bin/omarchy pkg drop soundthis
+
+  info "Verifying uninstalled status with 'omarchy pkg missing'..."
+  /usr/local/bin/omarchy pkg missing soundthis || fail "soundthis should be reported missing after drop"
+  success "omarchy pkg drop completed successfully"
 
   info "Verifying package removal..."
   [[ ! -f /usr/bin/soundthis ]] || fail "/usr/bin/soundthis was not removed"
@@ -102,15 +136,15 @@ if [[ "${1:-}" == "--container" ]]; then
   [[ ! -d /usr/share/omarchy/shell/plugins/soundthis ]] || fail "Plugin directory was not removed"
   success "All /usr files cleanly removed"
 
-  rm -rf "$BUILD_DIR"
-  success "Complete package lifecycle test PASSED in Arch Linux container!"
+  rm -rf "$BUILD_DIR" "$LOCAL_REPO"
+  success "Complete package lifecycle test PASSED in Arch Linux container with omarchy CLI!"
   exit 0
 fi
 
-# Case 3: Local sandbox test (rootless, non-destructive, works on host)
+# Case 3: Local sandbox test (rootless, non-destructive, works on host & Ubuntu CI)
 info "Running local sandbox package verification & lifecycle test..."
 
-SANDBOX_DIR=$(mktemp -d "/tmp/soundthis_e2e_XXXXXX")
+SANDBOX_DIR=$(mktemp -d -t soundthis_e2e.XXXXXX)
 trap 'rm -rf "$SANDBOX_DIR"' EXIT
 
 info "1. Validating package files and metadata..."
@@ -126,72 +160,16 @@ grep -q "\[Desktop Entry\]" "$REPO_ROOT/pkg/soundthis.desktop" || fail "Invalid 
 grep -q "enable soundthis.service" "$REPO_ROOT/pkg/90-soundthis.preset" || fail "Invalid preset file"
 success "Desktop entry and systemd preset validated"
 
-info "3. Testing scriptlet lifecycle against mock Omarchy environment..."
-BIN_DIR="$SANDBOX_DIR/bin"
-mkdir -p "$BIN_DIR"
-MOCK_RUN_DIR="$SANDBOX_DIR/run"
-mkdir -p "$MOCK_RUN_DIR"
-touch "$MOCK_RUN_DIR/wayland-1"
-SHELL_JSON="$SANDBOX_DIR/shell.json"
-echo '{"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' > "$SHELL_JSON"
+info "3. Testing scriptlet lifecycle via external simulator..."
+"$REPO_ROOT/tests/scripts/simulate-scriptlet.sh"
+success "External scriptlet lifecycle simulation passed"
 
-export MOCK_SHELL_JSON="$SHELL_JSON"
-
-cat << 'EOF' > "$BIN_DIR/omarchy-shell"
-#!/usr/bin/env bash
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-case "$*" in
-  *enablePlugin*soundthis*)
-    jq 'if (.bar.layout.right | any(.id == "soundthis" or . == "soundthis")) then . else .bar.layout.right = [{"id": "soundthis"}] + .bar.layout.right end' "$MOCK_SHELL_JSON" > "$MOCK_SHELL_JSON.tmp" && mv "$MOCK_SHELL_JSON.tmp" "$MOCK_SHELL_JSON"
-    echo "ok"
-    ;;
-  *setPluginEnabled*soundthis*false*)
-    jq '.bar.layout.right = [.bar.layout.right[] | select(.id != "soundthis" and . != "soundthis")]' "$MOCK_SHELL_JSON" > "$MOCK_SHELL_JSON.tmp" && mv "$MOCK_SHELL_JSON.tmp" "$MOCK_SHELL_JSON"
-    echo "ok"
-    ;;
-esac
-EOF
-chmod +x "$BIN_DIR/omarchy-shell"
-
-cat << 'EOF' > "$BIN_DIR/sudo"
-#!/usr/bin/env bash
-while [[ "${1:-}" == -* ]]; do
-  if [[ "$1" == "-u" ]]; then shift 2; else shift 1; fi
-done
-exec "$@"
-EOF
-chmod +x "$BIN_DIR/sudo"
-
-bash -c "
-  set -eu
-  export PATH=\"$BIN_DIR:\$PATH\"
-  export XDG_RUNTIME_DIR=\"$MOCK_RUN_DIR\"
-  source '$REPO_ROOT/pkg/soundthis.install'
-  _get_target_users() { echo '1000'; }
-
-  # Test post_install
-  post_install
-  jq -e 'any(.bar.layout.right[]; .id == \"soundthis\" or . == \"soundthis\")' '$SHELL_JSON' >/dev/null
-
-  # Test post_install idempotency
-  post_install
-  count=\$(jq '[.bar.layout.right[] | select(.id == \"soundthis\" or . == \"soundthis\")] | length' '$SHELL_JSON')
-  [[ \"\$count\" -eq 1 ]]
-
-  # Test pre_remove
-  pre_remove
-  if jq -e 'any(.bar.layout.right[]; .id == \"soundthis\" or . == \"soundthis\")' '$SHELL_JSON' >/dev/null 2>&1; then
-    exit 1
-  fi
-
-  # Test post_remove
-  post_remove
-"
-
-success "Scriptlet post_install, idempotency, pre_remove, and post_remove passed"
+info "4. Validating omarchy CLI command dispatch fixture..."
+"$REPO_ROOT/tests/scripts/fixtures/omarchy/omarchy" pkg --help >/dev/null
+success "omarchy CLI fixture verified"
 
 if command -v makepkg >/dev/null 2>&1; then
-  info "4. Testing package build with makepkg in sandbox..."
+  info "5. Testing package build with makepkg in sandbox..."
   cp -r "$REPO_ROOT/pkg"/* "$SANDBOX_DIR"/
   (cd "$SANDBOX_DIR" && makepkg -fd --nodeps >/dev/null 2>&1)
   PKG_ARCHIVE=$(find "$SANDBOX_DIR" -maxdepth 1 -name "soundthis-*.pkg.tar.zst" | head -n1)

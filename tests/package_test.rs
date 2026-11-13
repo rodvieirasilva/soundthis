@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 #[test]
 fn test_packaging_metadata_and_templates_validity() {
@@ -59,129 +60,26 @@ fn test_packaging_metadata_and_templates_validity() {
 
 #[test]
 fn test_soundthis_install_scriptlet_lifecycle_simulation() {
-    let pkg_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("pkg");
-    let install_script = pkg_dir.join("soundthis.install");
-    assert!(install_script.exists());
-
-    let temp_dir = std::env::temp_dir().join(format!("soundthis_pkg_test_{}", std::process::id()));
-    let _ = fs::remove_dir_all(&temp_dir);
-    fs::create_dir_all(&temp_dir).unwrap();
-
-    let bin_dir = temp_dir.join("bin");
-    fs::create_dir_all(&bin_dir).unwrap();
-
-    let shell_json_path = temp_dir.join("shell.json");
-    let initial_shell = serde_json::json!({
-        "bar": {
-            "layout": {
-                "right": [
-                    { "id": "omarchy.tray" }
-                ]
-            }
-        }
-    });
-    fs::write(
-        &shell_json_path,
-        serde_json::to_string(&initial_shell).unwrap(),
-    )
-    .unwrap();
-
-    // Create mock omarchy-shell
-    let omarchy_shell_mock = format!(
-        r#"#!/bin/bash
-case "$*" in
-  *enablePlugin*soundthis*)
-    jq 'if (.bar.layout.right | any(.id == "soundthis" or . == "soundthis")) then . else .bar.layout.right = [{{"id": "soundthis"}}] + .bar.layout.right end' "{shell_json}" > "{shell_json}.tmp" && mv "{shell_json}.tmp" "{shell_json}"
-    echo "ok"
-    ;;
-  *setPluginEnabled*soundthis*false*)
-    jq '.bar.layout.right = [.bar.layout.right[] | select(.id != "soundthis" and . != "soundthis")]' "{shell_json}" > "{shell_json}.tmp" && mv "{shell_json}.tmp" "{shell_json}"
-    echo "ok"
-    ;;
-esac
-"#,
-        shell_json = shell_json_path.display()
-    );
-    let omarchy_shell_path = bin_dir.join("omarchy-shell");
-    fs::write(&omarchy_shell_path, omarchy_shell_mock).unwrap();
-
-    // Create mock sudo
-    let sudo_mock = r#"#!/bin/bash
-while [[ "$1" == -* ]]; do
-  if [[ "$1" == "-u" ]]; then shift 2; else shift 1; fi
-done
-exec "$@"
-"#;
-    let sudo_path = bin_dir.join("sudo");
-    fs::write(&sudo_path, sudo_mock).unwrap();
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&omarchy_shell_path, fs::Permissions::from_mode(0o755)).unwrap();
-        fs::set_permissions(&sudo_path, fs::Permissions::from_mode(0o755)).unwrap();
-    }
-
-    let runtime_dir = temp_dir.join("run");
-    fs::create_dir_all(&runtime_dir).unwrap();
-    fs::write(runtime_dir.join("wayland-1"), "").unwrap();
-
-    let test_runner = format!(
-        r#"
-        set -eu
-        export PATH="{bin_dir}:$PATH"
-        export XDG_RUNTIME_DIR="{runtime_dir}"
-        source "{install_script}"
-
-        _get_target_users() {{
-            echo "1000"
-        }}
-
-        # 1. Execute post_install
-        post_install
-
-        # Verify insertion into shell.json
-        jq -e 'any(.bar.layout.right[]; .id == "soundthis" or . == "soundthis")' "{shell_json}" >/dev/null
-
-        # 2. Execute post_install a second time to ensure idempotency
-        post_install
-        count=$(jq '[.bar.layout.right[] | select(.id == "soundthis" or . == "soundthis")] | length' "{shell_json}")
-        if [ "$count" -ne 1 ]; then
-            echo "Expected exactly 1 soundthis entry, found $count"
-            exit 1
-        fi
-
-        # 3. Execute pre_remove
-        pre_remove
-
-        # Verify removal from shell.json
-        if jq -e 'any(.bar.layout.right[]; .id == "soundthis" or . == "soundthis")' "{shell_json}" >/dev/null 2>&1; then
-            echo "soundthis was not removed from shell.json"
-            exit 1
-        fi
-
-        # 4. Execute post_remove
-        post_remove
-        "#,
-        bin_dir = bin_dir.display(),
-        runtime_dir = runtime_dir.display(),
-        install_script = install_script.display(),
-        shell_json = shell_json_path.display(),
+    let script = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("scripts")
+        .join("simulate-scriptlet.sh");
+    assert!(
+        script.exists(),
+        "Simulation script must exist: {:?}",
+        script
     );
 
-    let output = std::process::Command::new("bash")
-        .arg("-c")
-        .arg(&test_runner)
+    let output = Command::new("bash")
+        .arg(&script)
         .output()
-        .expect("Failed to execute bash runner");
+        .expect("Failed to execute simulate-scriptlet.sh");
 
     assert!(
         output.status.success(),
         "Scriptlet test failed with stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-
-    let _ = fs::remove_dir_all(&temp_dir);
 }
 
 #[test]

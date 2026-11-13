@@ -63,6 +63,13 @@ soundthis/
 │   ├── config_test.rs             # TOML parsing, TLS generation, and template validation tests
 │   ├── installer_test.rs          # Service/plugin installation lifecycle and idempotency tests
 │   ├── http_test.rs               # Axum routes, CORS headers, and AppState tests
+│   ├── package_test.rs            # Package metadata, staging layout, and scriptlet lifecycle tests
+│   ├── scripts/                   # Test automation, mock runners, and CLI fixtures
+│   │   ├── fixtures/omarchy/      # Omarchy CLI test dispatch fixtures
+│   │   ├── mock-omarchy-shell.sh  # Mock Omarchy shell for headless bar layout tests
+│   │   ├── mock-sudo.sh           # Mock sudo for privilege drop simulation
+│   │   ├── simulate-scriptlet.sh  # Sandboxed scriptlet lifecycle test runner
+│   │   └── test-package-e2e.sh    # End-to-end Arch package and omarchy CLI test
 │   └── e2e_test.rs                # End-to-end tests (HTTP, HTTPS, WebSocket streaming, CLI)
 ├── web/
 │   ├── index.html                 # Frontend HTML shell
