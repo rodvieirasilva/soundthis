@@ -37,7 +37,7 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Running inside Arch Linux container..."
 
   # Install required package dependencies
-  pacman -Sy --noconfirm --needed sudo jq libpulse
+  pacman -Syu --noconfirm --needed jq
 
   # Setup unprivileged build user for makepkg
   if ! id -u builder >/dev/null 2>&1; then
@@ -68,7 +68,7 @@ if [[ "${1:-}" == "--container" ]]; then
 
   # 1. Test Package Installation
   info "Installing package with pacman -U..."
-  SUDO_USER=builder pacman -U --noconfirm "$PKG_FILE"
+  SUDO_USER=builder pacman -U --nodeps --noconfirm "$PKG_FILE"
 
   info "Verifying installed files..."
   [[ -x /usr/bin/soundthis ]] || fail "/usr/bin/soundthis is missing or not executable"
@@ -97,7 +97,7 @@ if [[ "${1:-}" == "--container" ]]; then
 
   # 2. Test Package Uninstallation
   info "Uninstalling package with pacman -Rns..."
-  SUDO_USER=builder pacman -Rns --noconfirm soundthis
+  SUDO_USER=builder pacman -Rns --nodeps --noconfirm soundthis
 
   info "Verifying package removal..."
   [[ ! -f /usr/bin/soundthis ]] || fail "/usr/bin/soundthis was not removed"
