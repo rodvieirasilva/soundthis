@@ -59,25 +59,25 @@ fn test_packaging_metadata_and_templates_validity() {
 }
 
 #[test]
-fn test_soundthis_install_scriptlet_lifecycle_simulation() {
+fn test_package_e2e_runner() {
     let script = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
-        .join("scripts")
-        .join("simulate-scriptlet.sh");
+        .join("package")
+        .join("test-package-e2e.sh");
     assert!(
         script.exists(),
-        "Simulation script must exist: {:?}",
+        "Package E2E script must exist: {:?}",
         script
     );
 
     let output = Command::new("bash")
         .arg(&script)
         .output()
-        .expect("Failed to execute simulate-scriptlet.sh");
+        .expect("Failed to execute test-package-e2e.sh");
 
     assert!(
         output.status.success(),
-        "Scriptlet test failed with stderr: {}",
+        "Package test failed with stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 }

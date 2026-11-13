@@ -80,7 +80,7 @@ jobs:
         run: cargo build --release
 
       - name: Package Lifecycle E2E Test (Sandbox)
-        run: ./tests/scripts/test-package-e2e.sh
+        run: ./tests/package/test-package-e2e.sh
 
       - name: Install Playwright Chromium & system dependencies
         run: |
@@ -100,4 +100,4 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Run Arch Linux Package Lifecycle E2E
-        run: ./tests/scripts/test-package-e2e.sh --docker
+        run: ./tests/package/test-package-e2e.sh --docker

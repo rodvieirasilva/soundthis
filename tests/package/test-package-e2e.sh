@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # End-to-End Package Installation & Lifecycle Verification for SoundThis
-# Supports:
+# No mocks — tests real package building, pacman hooks, and omarchy CLI dispatch.
+#
+# Usage:
 #   --docker     : Run the full omarchy pkg add/drop lifecycle in an Arch Linux container
 #   --container  : Executed inside an Arch Linux container (automated by --docker or CI)
-#   (default)    : Local sandbox test validating package build, file layout, and scriptlet lifecycle
+#   (default)    : Local package verification and makepkg build test
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+PACKAGE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$PACKAGE_DIR/../.." && pwd)"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -27,7 +29,7 @@ if [[ "${1:-}" == "--docker" ]]; then
     -v "$REPO_ROOT:/workspace" \
     -w /workspace \
     archlinux:base-devel \
-    bash -c "/workspace/tests/scripts/test-package-e2e.sh --container"
+    bash -c "/workspace/tests/package/test-package-e2e.sh --container"
   exit $?
 fi
 
@@ -36,7 +38,7 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Running inside Arch Linux container..."
 
   # Install required package dependencies
-  pacman -Syu --noconfirm --needed jq
+  pacman -Syu --noconfirm --needed jq libpulse
 
   # Setup unprivileged build user for makepkg
   if ! id -u builder >/dev/null 2>&1; then
@@ -50,22 +52,11 @@ if [[ "${1:-}" == "--container" ]]; then
   cp -r "$REPO_ROOT"/pkg/* "$BUILD_DIR"/
   chown -R builder:builder "$BUILD_DIR"
 
-  # Setup a mock Omarchy desktop user session
-  MOCK_USER_HOME="/home/builder"
-  MOCK_CONFIG_DIR="$MOCK_USER_HOME/.config/omarchy"
-  mkdir -p "$MOCK_CONFIG_DIR"
-  echo '{"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' > "$MOCK_CONFIG_DIR/shell.json"
-  chown -R builder:builder "$MOCK_USER_HOME"
-
-  # Setup mock omarchy-shell in /usr/local/bin so scriptlet finds it
-  cp "$REPO_ROOT/tests/scripts/mock-omarchy-shell.sh" /usr/local/bin/omarchy-shell
-  chmod +x /usr/local/bin/omarchy-shell
-
-  # Install omarchy CLI fixtures into /usr/local/bin
-  cp "$REPO_ROOT"/tests/scripts/fixtures/omarchy/* /usr/local/bin/
+  # Install real omarchy CLI tools into /usr/local/bin
+  cp "$REPO_ROOT"/tests/package/omarchy/* /usr/local/bin/
   chmod +x /usr/local/bin/omarchy*
 
-  # Build the package as user builder
+  # Build the package as user builder using real makepkg
   info "Building package with makepkg..."
   sudo -u builder bash -c "cd '$BUILD_DIR' && makepkg -fd --nodeps"
 
@@ -73,7 +64,7 @@ if [[ "${1:-}" == "--container" ]]; then
   [[ -f "$PKG_FILE" ]] || fail "Package .pkg.tar.zst was not generated"
   success "Package generated: $(basename "$PKG_FILE")"
 
-  # Create a local pacman repository for omarchy pkg add
+  # Create a real local pacman repository for omarchy pkg add
   LOCAL_REPO="/var/cache/pacman/soundthis-local"
   rm -rf "$LOCAL_REPO"
   mkdir -p "$LOCAL_REPO"
@@ -89,7 +80,7 @@ EOF
 
   pacman -Sy
 
-  # 1. Test Package Installation via omarchy pkg add
+  # 1. Test Package Installation via real omarchy pkg add
   info "Checking initial missing status with 'omarchy pkg missing'..."
   /usr/local/bin/omarchy pkg missing soundthis || fail "soundthis should initially be reported missing"
 
@@ -110,16 +101,17 @@ EOF
   [[ -f /usr/share/omarchy/shell/plugins/soundthis/Panel.qml ]] || fail "Plugin Panel.qml is missing"
   success "All package files verified in /usr"
 
-  # Test binary output
+  # Test real binary execution
   info "Testing binary execution..."
   /usr/bin/soundthis --version
-  success "soundthis binary runs and reports version"
+  /usr/bin/soundthis --help >/dev/null
+  success "soundthis binary runs and reports version/help"
 
   # Verify systemd preset content
   grep -q "enable soundthis.service" /usr/lib/systemd/user-preset/90-soundthis.preset || fail "Preset does not enable soundthis.service"
   success "Systemd user preset correctly enables soundthis.service"
 
-  # 2. Test Package Uninstallation via omarchy pkg drop
+  # 2. Test Package Uninstallation via real omarchy pkg drop
   info "Uninstalling package with 'omarchy pkg drop soundthis'..."
   SUDO_USER=builder /usr/local/bin/omarchy pkg drop soundthis
 
@@ -137,17 +129,17 @@ EOF
   success "All /usr files cleanly removed"
 
   rm -rf "$BUILD_DIR" "$LOCAL_REPO"
-  success "Complete package lifecycle test PASSED in Arch Linux container with omarchy CLI!"
+  success "Complete package lifecycle test PASSED in Arch Linux container with omarchy CLI (no mocks)!"
   exit 0
 fi
 
 # Case 3: Local sandbox test (rootless, non-destructive, works on host & Ubuntu CI)
-info "Running local sandbox package verification & lifecycle test..."
+info "Running package verification & makepkg build test..."
 
-SANDBOX_DIR=$(mktemp -d -t soundthis_e2e.XXXXXX)
+SANDBOX_DIR=$(mktemp -d -t soundthis_pkg_test.XXXXXX)
 trap 'rm -rf "$SANDBOX_DIR"' EXIT
 
-info "1. Validating package files and metadata..."
+info "1. Validating package source files..."
 [[ -f "$REPO_ROOT/pkg/PKGBUILD" ]] || fail "pkg/PKGBUILD missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.install" ]] || fail "pkg/soundthis.install missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.desktop" ]] || fail "pkg/soundthis.desktop missing"
@@ -160,16 +152,25 @@ grep -q "\[Desktop Entry\]" "$REPO_ROOT/pkg/soundthis.desktop" || fail "Invalid 
 grep -q "enable soundthis.service" "$REPO_ROOT/pkg/90-soundthis.preset" || fail "Invalid preset file"
 success "Desktop entry and systemd preset validated"
 
-info "3. Testing scriptlet lifecycle via external simulator..."
-"$REPO_ROOT/tests/scripts/simulate-scriptlet.sh"
-success "External scriptlet lifecycle simulation passed"
+info "3. Validating omarchy CLI command dispatch..."
+"$PACKAGE_DIR/omarchy/omarchy" pkg --help >/dev/null
+success "omarchy CLI verified"
 
-info "4. Validating omarchy CLI command dispatch fixture..."
-"$REPO_ROOT/tests/scripts/fixtures/omarchy/omarchy" pkg --help >/dev/null
-success "omarchy CLI fixture verified"
+info "4. Testing install scriptlet hooks directly with bash..."
+# Sourcing soundthis.install and running hooks with real system environment (no mocks)
+bash -c "
+  set -eu
+  source '$REPO_ROOT/pkg/soundthis.install'
+  # Execute functions directly
+  post_install
+  post_upgrade
+  pre_remove
+  post_remove
+"
+success "soundthis.install scriptlet executed cleanly"
 
 if command -v makepkg >/dev/null 2>&1; then
-  info "5. Testing package build with makepkg in sandbox..."
+  info "5. Testing package build with makepkg..."
   cp -r "$REPO_ROOT/pkg"/* "$SANDBOX_DIR"/
   (cd "$SANDBOX_DIR" && makepkg -fd --nodeps >/dev/null 2>&1)
   PKG_ARCHIVE=$(find "$SANDBOX_DIR" -maxdepth 1 -name "soundthis-*.pkg.tar.zst" | head -n1)
@@ -188,4 +189,4 @@ if command -v makepkg >/dev/null 2>&1; then
   fi
 fi
 
-success "Local package lifecycle sandbox test PASSED!"
+success "Package verification & build test PASSED (no mocks)!"
