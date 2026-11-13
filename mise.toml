@@ -53,9 +53,17 @@ depends = ["screenshots:web", "screenshots:widget"]
 description = "Run Rust unit and integration tests"
 run = "cargo test"
 
+[tasks."test:package"]
+description = "Run end-to-end package install, service enablement, and widget lifecycle tests"
+run = "./scripts/test-package-e2e.sh"
+
+[tasks."test:package:docker"]
+description = "Run real pacman install & uninstall E2E tests inside Arch Linux container"
+run = "./scripts/test-package-e2e.sh --docker"
+
 [tasks.test]
-description = "Run all web and server tests"
-depends = ["test:web", "test:server"]
+description = "Run all web, server, and package lifecycle tests"
+depends = ["test:web", "test:server", "test:package"]
 
 [tasks."coverage:web"]
 description = "Run frontend Vitest coverage (threshold >= 80%)"
