@@ -17,6 +17,8 @@ COPY config ./config
 COPY systemd ./systemd
 COPY plugin ./plugin
 COPY assets ./assets
+COPY pkg ./pkg
+COPY web/src/assets ./web/src/assets
 RUN cargo build --release --no-default-features
 
 # Stage 3: Arch Linux runtime container (Native to Omarchy)
