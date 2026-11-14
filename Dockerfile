@@ -41,4 +41,5 @@ EXPOSE 9697
 ENV PULSE_SERVER=unix:/tmp/pulse/native
 
 # Serve audio over HTTP/WebSocket
-ENTRYPOINT ["/usr/bin/soundthis", "serve"]
+ENTRYPOINT ["/usr/bin/soundthis"]
+CMD ["serve"]

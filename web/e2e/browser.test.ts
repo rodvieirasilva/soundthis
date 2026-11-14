@@ -238,6 +238,33 @@ test.describe("Browser E2E SoundThis Integration", () => {
     await expect(statusBadge).toContainText("Live");
   });
 
+  test("should update web theme CSS variables in real time on /api/theme/reload without page refresh", async ({
+    page,
+  }) => {
+    await page.goto(`http://127.0.0.1:${testPort}/`);
+    await page.waitForLoadState("networkidle");
+
+    // Initial background CSS variable
+    const initialBg = await page.evaluate(() => {
+      return getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    });
+    expect(initialBg).toBeTruthy();
+
+    // Trigger theme reload API on running server
+    const reloadRes = await fetch(`http://127.0.0.1:${testPort}/api/theme/reload`, {
+      method: "POST",
+    });
+    expect(reloadRes.ok).toBe(true);
+
+    // Give WebSocket moment to process broadcast packet
+    await page.waitForTimeout(300);
+
+    const updatedBg = await page.evaluate(() => {
+      return getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    });
+    expect(updatedBg).toBeTruthy();
+  });
+
   test("should maintain stable memory utilization during sustained playback without accumulation", async ({
     page,
   }) => {

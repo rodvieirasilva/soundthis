@@ -60,6 +60,57 @@ fn test_config_defaults_and_parsing() {
 }
 
 #[test]
+fn test_desktop_keep_streaming_toml_lifecycle() {
+    let temp_dir = std::env::temp_dir().join(format!("soundthis_cfg_test_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&temp_dir);
+    let config_file = temp_dir.join("config.toml");
+
+    let initial_toml = r#"
+port = 9697
+host = "0.0.0.0"
+protocol = "http"
+
+[tls]
+auto_generate = true
+
+[cors]
+allow_origins = ["*"]
+allow_methods = ["GET", "POST", "OPTIONS"]
+allow_headers = ["*"]
+
+[audio]
+sample_rate = 48000
+channels = 2
+chunk_size = 3840
+latency_ms = 20
+
+[desktop]
+keep_streaming = true
+"#;
+    std::fs::write(&config_file, initial_toml).unwrap();
+
+    let cfg: ServerConfig =
+        toml::from_str(&std::fs::read_to_string(&config_file).unwrap()).unwrap();
+    assert!(cfg.desktop.keep_streaming);
+
+    // Toggle to false
+    let updated = soundthis::config::update_keep_streaming_in_toml(initial_toml, false);
+    assert!(updated.contains("keep_streaming = false"));
+    let re_parsed: ServerConfig = toml::from_str(&updated).unwrap();
+    assert!(!re_parsed.desktop.keep_streaming);
+    assert_eq!(re_parsed.port, 9697);
+    assert_eq!(re_parsed.audio.sample_rate, 48000);
+
+    // Toggle back to true
+    let updated_back = soundthis::config::update_keep_streaming_in_toml(&updated, true);
+    assert!(updated_back.contains("keep_streaming = true"));
+    let re_parsed2: ServerConfig = toml::from_str(&updated_back).unwrap();
+    assert!(re_parsed2.desktop.keep_streaming);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
 fn test_tls_self_signed_cert_generation() {
     let temp_dir =
         std::env::temp_dir().join(format!("soundthis_test_certs_{}", std::process::id()));

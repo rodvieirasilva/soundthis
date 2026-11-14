@@ -143,3 +143,16 @@ async fn test_cli_commands_online() {
 
     handle.abort();
 }
+
+#[tokio::test]
+async fn test_cmd_app_single_instance_detection() {
+    let pid_file = soundthis::ui::get_gui_pid_file();
+    // Write current process PID to simulate already-running GUI
+    let _ = std::fs::write(&pid_file, std::process::id().to_string());
+
+    let config = ServerConfig::default();
+    // When GUI is already running, run_desktop_workflow should detect it and return Ok without spawning
+    assert!(cli::run_desktop_workflow(&config).await.is_ok());
+
+    let _ = std::fs::remove_file(pid_file);
+}
