@@ -38,7 +38,7 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Running inside Arch Linux container..."
 
   # Install required package dependencies
-  pacman -Syu --noconfirm --needed jq libpulse
+  pacman -Syu --noconfirm --needed jq libpulse gtk4 libadwaita
 
   # Setup unprivileged build user for makepkg
   if ! id -u builder >/dev/null 2>&1; then
@@ -50,6 +50,31 @@ if [[ "${1:-}" == "--container" ]]; then
   rm -rf "$BUILD_DIR"
   mkdir -p "$BUILD_DIR"
   cp -r "$REPO_ROOT"/pkg/* "$BUILD_DIR"/
+
+  # Stage local release archive if built, so makepkg builds real local artifacts
+  ARCH=$(uname -m)
+  PKGVER=$(grep -E '^pkgver=' "$BUILD_DIR/PKGBUILD" | cut -d'=' -f2)
+  ARCHIVE="soundthis-${PKGVER}-${ARCH}-linux.tar.gz"
+  if [[ -f "$REPO_ROOT/target/release/soundthis" ]]; then
+    STAGE_DIR=$(mktemp -d)
+    mkdir -p "$STAGE_DIR/package"
+    cp "$REPO_ROOT/target/release/soundthis" "$STAGE_DIR/package/"
+    cp "$REPO_ROOT/README.md" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp "$REPO_ROOT/LICENSE" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/systemd" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/plugin" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/config" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/assets" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/docs" "$STAGE_DIR/package/" 2>/dev/null || true
+    tar -czf "$BUILD_DIR/$ARCHIVE" -C "$STAGE_DIR/package" .
+    rm -rf "$STAGE_DIR"
+    NEW_SUM=$(sha256sum "$BUILD_DIR/$ARCHIVE" | awk '{print $1}')
+    if [[ "$ARCH" == "x86_64" ]]; then
+      sed -i "s|sha256sums_x86_64=('.*')|sha256sums_x86_64=('$NEW_SUM')|" "$BUILD_DIR/PKGBUILD"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+      sed -i "s|sha256sums_aarch64=('.*')|sha256sums_aarch64=('$NEW_SUM')|" "$BUILD_DIR/PKGBUILD"
+    fi
+  fi
   chown -R builder:builder "$BUILD_DIR"
 
   # Build the package as user builder using real makepkg
@@ -122,7 +147,6 @@ info "1. Validating package source files..."
 [[ -f "$REPO_ROOT/pkg/soundthis.install" ]] || fail "pkg/soundthis.install missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.desktop" ]] || fail "pkg/soundthis.desktop missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.svg" ]] || fail "pkg/soundthis.svg missing"
-[[ -f "$REPO_ROOT/ui/Main.qml" ]] || fail "ui/Main.qml missing"
 success "Package source files present"
 
 info "2. Checking desktop entry syntax..."
@@ -150,6 +174,29 @@ success "soundthis.install scriptlet executed cleanly"
 if command -v makepkg >/dev/null 2>&1; then
   info "5. Testing package build with makepkg..."
   cp -r "$REPO_ROOT/pkg"/* "$SANDBOX_DIR"/
+  ARCH=$(uname -m)
+  PKGVER=$(grep -E '^pkgver=' "$SANDBOX_DIR/PKGBUILD" | cut -d'=' -f2)
+  ARCHIVE="soundthis-${PKGVER}-${ARCH}-linux.tar.gz"
+  if [[ -f "$REPO_ROOT/target/release/soundthis" ]]; then
+    STAGE_DIR=$(mktemp -d)
+    mkdir -p "$STAGE_DIR/package"
+    cp "$REPO_ROOT/target/release/soundthis" "$STAGE_DIR/package/"
+    cp "$REPO_ROOT/README.md" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp "$REPO_ROOT/LICENSE" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/systemd" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/plugin" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/config" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/assets" "$STAGE_DIR/package/" 2>/dev/null || true
+    cp -r "$REPO_ROOT/docs" "$STAGE_DIR/package/" 2>/dev/null || true
+    tar -czf "$SANDBOX_DIR/$ARCHIVE" -C "$STAGE_DIR/package" .
+    rm -rf "$STAGE_DIR"
+    NEW_SUM=$(sha256sum "$SANDBOX_DIR/$ARCHIVE" | awk '{print $1}')
+    if [[ "$ARCH" == "x86_64" ]]; then
+      sed -i "s|sha256sums_x86_64=('.*')|sha256sums_x86_64=('$NEW_SUM')|" "$SANDBOX_DIR/PKGBUILD"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+      sed -i "s|sha256sums_aarch64=('.*')|sha256sums_aarch64=('$NEW_SUM')|" "$SANDBOX_DIR/PKGBUILD"
+    fi
+  fi
   (cd "$SANDBOX_DIR" && makepkg -fd --nodeps >/dev/null 2>&1)
   PKG_ARCHIVE=$(find "$SANDBOX_DIR" -maxdepth 1 -name "soundthis-*.pkg.tar.zst" | head -n1)
   if [[ -f "$PKG_ARCHIVE" ]]; then

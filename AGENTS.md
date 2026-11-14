@@ -8,11 +8,11 @@ Welcome! This document provides essential architecture patterns, engineering sta
 
 **SoundThis** is an ultra-low latency, real-time desktop audio streaming server built natively for **Omarchy Linux** in Rust and TypeScript/Vite.
 
-- **Single Self-Contained Binary**: One unified executable (`/usr/bin/soundthis`) containing the server, embedded web player, and embedded Qt Quick desktop application.
+- **Single Self-Contained Binary**: One unified executable (`/usr/bin/soundthis`) containing the server, embedded web player, and compiled native GTK4/Adwaita desktop application.
 - **Audio Capture**: Captures desktop playback directly from PipeWire / PulseAudio via `parec`.
-- **Server**: Asynchronous Rust server built on Axum and Tokio with sub-3ms startup and ~1.6MB RAM footprint.
+- **Server**: Asynchronous Rust server built on Axum and Tokio with sub-3ms startup and ~7MB RAM footprint.
 - **Embedded Web Client**: Modern single-file client (`TypeScript` + `Vite` + `AudioContext`), compiled and embedded directly into the binary via `include_str!`. Zero external runtime assets or internet access required.
-- **Embedded Qt Quick Desktop UI**: Native Omarchy desktop window (`ui/Main.qml`), launched via `qml6` with dynamic Omarchy OS theme syncing (`colors.toml`), QR code, and on-demand streaming lifecycle.
+- **Compiled Native Desktop UI**: Native Omarchy desktop window (`src/ui/gtk_app.rs`) built in Rust with GTK4 and libadwaita, with built-in GApplication single-instance window focusing, QR code, and on-demand streaming lifecycle.
 - **Protocol**: HTTP/HTTPS with auto-generated self-signed TLS certificates (via `rcgen`) and raw PCM binary streaming over WebSockets.
 - **Desktop Integration**: Native Omarchy shell bar widget (`plugin/Panel.qml`) and systemd user service (`soundthis.service`).
 
@@ -39,8 +39,6 @@ soundthis/
 │   └── capture-widget.sh          # Desktop widget screenshot automation via grim & quickshell
 ├── systemd/
 │   └── soundthis.service.template # Systemd user service template with %BIN_PATH%
-├── ui/
-│   └── Main.qml                   # Native Omarchy Qt Quick desktop control application
 ├── src/
 │   ├── main.rs                    # Application entry point and CLI command dispatch
 │   ├── lib.rs                     # Library exports for testing and modularity
@@ -49,7 +47,8 @@ soundthis/
 │   ├── error.rs                   # SoundThisError enum definition
 │   ├── state.rs                   # Shared thread-safe AppState (streaming toggle, client list)
 │   ├── ui/
-│   │   └── mod.rs                 # Embedded QML launcher (qml6), clipboard, and GUI config
+│   │   ├── mod.rs                 # Native GUI config, clipboard, and entrypoint
+│   │   └── gtk_app.rs             # Native GTK4/Adwaita desktop control application
 │   ├── audio/
 │   │   ├── mod.rs                 # Audio module exports
 │   │   ├── source.rs              # AudioSource trait, ParecAudioSource, MockAudioSource

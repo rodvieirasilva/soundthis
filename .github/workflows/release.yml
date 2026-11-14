@@ -24,10 +24,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install system audio dependencies
+      - name: Install system audio & GUI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pulseaudio-utils libpulse-dev
+          sudo apt-get install -y pulseaudio-utils libpulse-dev libgtk-4-dev libadwaita-1-dev
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

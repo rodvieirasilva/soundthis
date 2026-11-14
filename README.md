@@ -23,13 +23,16 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 ## Preview
 
 <p align="center">
-  <img src="docs/screenshots/web-client.png" alt="SoundThis Web Player Interface" width="48%" />
+  <img src="docs/screenshots/desktop-app.png" alt="SoundThis Native GTK4 Desktop Application" width="31%" />
   &nbsp;
-  <img src="docs/screenshots/omarchy-panel.png" alt="SoundThis Omarchy Desktop Bar Widget & Panel" width="48%" />
+  <img src="docs/screenshots/web-client.png" alt="SoundThis Web Player Interface" width="31%" />
+  &nbsp;
+  <img src="docs/screenshots/omarchy-panel.png" alt="SoundThis Omarchy Desktop Bar Widget & Panel" width="31%" />
 </p>
 
 <p align="center">
-  <em>Left: Embedded web player with real-time waveform visualizer, client naming, and live stream telemetry.<br>
+  <em>Left: Native GTK4 / Libadwaita desktop application with live QR code, single-instance window focusing, and listener telemetry.<br>
+  Center: Embedded web player with real-time waveform visualizer, client naming, and 0ms event-driven theme sync.<br>
   Right: Native Omarchy desktop bar widget and popout panel showing server link and active listeners.</em>
 </p>
 
@@ -44,29 +47,32 @@ Other cross-platform tools like **AudioRelay** require installing dedicated nati
 | Feature / Solution | **SoundThis** | [SoundIt](https://soundit.app/) | [AudioRelay](https://audiorelay.net/) | Snapcast / RTP Multicast |
 |---|---|---|---|---|
 | **Host OS** | **Omarchy / Arch Linux (Native)** | Windows only | Windows, Linux, macOS | Linux |
+| **Supported Architectures** | **x86_64 & aarch64 (ARM64)** | x86_64 only | x86_64, ARM | x86_64, ARM |
+| **Server RAM Footprint** | **~7 MB RAM (Sub-3ms startup)** | ~50–80 MB RAM | ~80–120 MB RAM (Java/Electron) | ~15–30 MB RAM |
+| **Server CPU Usage** | **< 0.5% CPU (Active stream)** | ~2–5% CPU | ~3–7% CPU | ~1–3% CPU |
 | **Client Requirement** | **Any Web Browser (Zero Install)** | Web Browser | Dedicated Mobile/Desktop App | Dedicated client daemon |
-| **Desktop Integration** | **Native Omarchy Bar Widget & Panel** | Windows Tray | System Tray / GUI Window | None (CLI daemon) |
-| **RAM Footprint** | **~1.6 MB RAM (Sub-3ms startup)** | ~50–80 MB RAM | ~80–120 MB RAM (Java/Electron) | ~15–30 MB RAM |
-| **Binary Size** | **~2.9 MB (Self-contained)** | Multi-file installer | Multi-file package | Multi-package |
-| **Latency** | **Ultra-low (~30–50ms)** | ~50–100ms | ~40–80ms | ~200–1000ms |
-| **Client Usability** | **Instant (URL or QR code)** | Instant (URL) | Requires app install + setup | Requires complex client config |
+| **Client Web Heap** | **< 20 MB (Leak-free playback)** | ~30–50 MB | Dedicated App (~80 MB) | N/A (daemon) |
+| **Desktop Integration** | **Native Omarchy App + Bar Widget** | Windows Tray | System Tray / GUI Window | None (CLI daemon) |
+| **Binary Layout** | **Single unified binary** | Multi-file installer | Multi-file package | Multi-package |
+| **Audio Latency** | **Ultra-low (~30–50ms)** | ~50–100ms | ~40–80ms | ~200–1000ms |
+| **Theme Support** | **Dynamic Omarchy OS sync** | Static theme | Static theme | None |
 | **Open Source** | **MIT License** | Proprietary | Proprietary (Freemium) | GPL |
 
 ### Why SoundThis is Simpler & Better:
 - **Zero Client Installation**: Any phone (iOS/Android), tablet, laptop, or smart TV can connect immediately through its native browser. No apps, APKs, or store downloads required.
-- **Ultra-Lightweight & Efficient**: Built in async Rust (Axum + Tokio) with a tiny memory footprint (~1.6 MB) and near-zero CPU usage.
-- **Completely Self-Contained**: The web player is pre-compiled and embedded directly inside the 2.9 MB single binary via `include_str!`. Zero external runtime assets or internet access required.
+- **Ultra-Lightweight & Efficient**: Built in async Rust (Axum + Tokio) with a tiny memory footprint (~7 MB RSS) and near-zero CPU usage (< 0.5%).
+- **Completely Self-Contained**: The web player and native GTK4/Adwaita desktop window are pre-compiled and embedded directly inside a single binary (~6.2 MB with GUI, ~2.8 MB headless) via `include_str!`. Zero external runtime assets or internet access required.
 - **Native Omarchy Desktop Experience**: Right-click the bar widget to toggle sharing on/off, click to view connected listeners, or copy the LAN link with one tap.
 
 ---
 
 ## Highlights
 
-- **Single Self-Contained Binary**: One unified executable (`/usr/bin/soundthis`) containing the async Rust audio streaming server, the embedded Vite web client, and the embedded Qt Quick desktop application.
-- **Embedded Qt Quick Desktop UI**: Built natively for Omarchy using Qt Quick (`ui/Main.qml`). Dynamically follows Omarchy OS theme switches (`colors.toml`), displays real-time server telemetry, live QR code for mobile scanning, listener list, and instant stream URL copy/open actions.
-- **Dynamic Theme Syncing**: Live theme palette support from `~/.local/state/omarchy/current/theme/colors.toml` for both the desktop application and the web player.
+- **Single Self-Contained Binary**: One unified executable (`/usr/bin/soundthis`) containing the async Rust audio streaming server, the embedded Vite web client, and the compiled native GTK4/Adwaita desktop application.
+- **Compiled GTK4 & Libadwaita Desktop UI**: Built natively in Rust for Omarchy Linux with zero external interpreters or subprocesses (following the architecture of tools like `lan-mouse`). Features built-in single-instance window focusing, live QR code for mobile scanning, connected listener telemetry, and instant stream URL copy/open actions.
+- **Event-Driven Theme Syncing**: Live theme palette support powered by Omarchy's native `omarchy-hook theme-set` event and pushed over WebSockets directly to connected web clients with 0ms latency. Zero HTTP polling.
 - **On-Demand Lifecycle**: Starts streaming instantly when opened from the app launcher. When the window closes, it stops streaming cleanly, or optionally continues streaming in the background with the Omarchy bar widget if "Keep streaming in Omarchy bar" is checked.
-- **Native Rust Server**: Axum + Tokio async WebSocket broadcast server with minimal memory footprint (~1.6 MB RAM) and sub-3ms startup.
+- **Native Rust Server**: Axum + Tokio async WebSocket broadcast server with minimal memory footprint (~7 MB RSS) and sub-3ms startup.
 - **Embedded Vite Web Client**: Single-file bundled frontend (`TypeScript` + `Vite` + `AudioContext`), compiled and embedded directly inside the binary via `include_str!`. Zero external runtime assets needed.
 - **TOML Configuration Support**: Fully customizable via `~/.config/soundthis/config.toml` or custom path with `--config`.
 - **HTTP & HTTPS with Auto-TLS**: Native TLS support via `rustls`, including auto-generating self-signed X.509 certificates for localhost and your LAN IP.
@@ -100,28 +106,30 @@ omarchy pkg add soundthis
 
 ### From GitHub Releases (Fastest — Standalone Binary)
 
-Pre-built standalone Linux x86_64 binaries are published with every release on [GitHub Releases](https://github.com/rodvieirasilva/soundthis/releases).
+Pre-built standalone Linux binaries are published for both **x86_64** (AMD64/Intel) and **aarch64** (ARM64) with every release on [GitHub Releases](https://github.com/rodvieirasilva/soundthis/releases).
 
 #### Option A: Quick Install (curl)
 ```bash
-# Download latest release, extract binary to ~/.local/bin, and configure service
-curl -sL https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.3.2-x86_64-linux.tar.gz | tar -xz -C ~/.local/bin soundthis
+# Auto-detect architecture (x86_64 or aarch64), download latest release, and install
+ARCH=$(uname -m)
+curl -sL "https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.4.0-${ARCH}-linux.tar.gz" | tar -xz -C ~/.local/bin soundthis
 soundthis install
 ```
 
 #### Option B: GitHub CLI (`gh`)
 ```bash
-gh release download --repo rodvieirasilva/soundthis --pattern "*.tar.gz"
-tar -xzf soundthis-*-x86_64-linux.tar.gz
+ARCH=$(uname -m)
+gh release download --repo rodvieirasilva/soundthis --pattern "*${ARCH}*.tar.gz"
+tar -xzf soundthis-*-${ARCH}-linux.tar.gz
 install -m 755 soundthis ~/.local/bin/soundthis
 soundthis install
 ```
 
 #### Option C: Manual Download
-1. Download `soundthis-*-x86_64-linux.tar.gz` from the [Releases page](https://github.com/rodvieirasilva/soundthis/releases).
+1. Download `soundthis-*-<x86_64|aarch64>-linux.tar.gz` matching your system architecture from the [Releases page](https://github.com/rodvieirasilva/soundthis/releases).
 2. Extract the archive: `tar -xzf soundthis-*.tar.gz`.
 3. Copy the executable to your path: `install -m 755 soundthis ~/.local/bin/soundthis`.
-4. Run `soundthis install` to configure the systemd daemon and Omarchy bar widget.
+4. Run `soundthis install` to configure the Omarchy desktop entry and top bar widget.
 
 ---
 
@@ -158,6 +166,40 @@ mise run install
 2. Generating the systemd user service unit (`soundthis.service`) and starting the background daemon.
 3. Deploying the Omarchy shell plugin to `~/.config/omarchy/plugins/soundthis/`.
 4. Registering the widget into the Omarchy bar layout (`~/.config/omarchy/shell.json`).
+
+---
+
+### Via Docker (Containerized Audio Streaming)
+
+You can run SoundThis inside a Docker or Podman container that captures audio directly from your host machine's PipeWire or PulseAudio daemon:
+
+#### Option A: Using the Runner Script (Recommended)
+```bash
+./scripts/docker-run.sh
+```
+Or via Mise:
+```bash
+mise run docker:run
+```
+
+#### Option B: Docker Compose
+```bash
+docker compose up -d
+```
+
+#### Option C: Docker Run CLI
+```bash
+docker run -d \
+  --name soundthis \
+  --network host \
+  -e PULSE_SERVER=unix:/tmp/pulse/native \
+  -v "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native:/tmp/pulse/native:ro" \
+  -v "${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro" \
+  soundthis:latest
+```
+
+> [!TIP]
+> The container connects to your host's audio server by mounting the PipeWire/PulseAudio UNIX domain socket into `/tmp/pulse/native`. With `--network host`, startup takes < 3ms with the same ultra-low latency streaming (~30–50ms).
 
 ---
 
@@ -223,7 +265,7 @@ http://<YOUR_LAN_IP>:9697
 
 
 ### Desktop App & Omarchy Integration
-- **App Launcher / CLI**: Launch `soundthis` with no arguments in your Omarchy desktop session to open the native Qt Quick desktop application.
+- **App Launcher / CLI**: Launch `soundthis` with no arguments in your Omarchy desktop session to open the native GTK4 / Libadwaita desktop application.
 - **Dynamic Theming**: The desktop UI and web client dynamically match your active Omarchy theme colors live from `colors.toml`.
 - **Omarchy Bar Widget**:
   - **Left Click**: Opens the SoundThis control panel showing LAN link, connected listeners, and controls.
@@ -285,6 +327,7 @@ mise run fmt             # Automatically format Rust code
   - `http.rs`: HTTP endpoints and embedded asset delivery.
   - `ws.rs`: WebSocket streaming session handling and client identification.
 - **`src/installer/`**: External templates (`systemd/soundthis.service.template`, `plugin/`) and systemd/Omarchy shell management.
+- **`src/ui/`**: Native compiled GTK4 & libadwaita desktop window (`gtk_app.rs`) with built-in GApplication single-instance handling and preferences.
 - **`web/`**: Single-responsibility TypeScript modules:
   - `audio/player.ts`: `AudioStreamPlayer` managing AudioContext and scheduled audio buffer playback.
   - `audio/visualizer.ts`: `CanvasVisualizer` rendering responsive frequency spectrum bars.

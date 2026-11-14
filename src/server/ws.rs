@@ -88,11 +88,39 @@ async fn handle_ws_session(
         !initially_paused
     );
 
+    // Send current Omarchy theme to client immediately over WebSocket
+    let initial_palette = crate::server::theme::ThemePalette::load_current();
+    let initial_theme_msg = serde_json::json!({
+        "type": "theme",
+        "palette": initial_palette
+    });
+    let _ = socket
+        .send(Message::Text(initial_theme_msg.to_string().into()))
+        .await;
+
     let mut audio_rx = broadcaster.subscribe();
+    let mut theme_rx = state.subscribe_theme();
     let mut client_paused = initially_paused;
 
     loop {
         tokio::select! {
+            // Push dynamic theme updates whenever Omarchy theme changes
+            theme_update = theme_rx.recv() => {
+                match theme_update {
+                    Ok(palette) => {
+                        let msg = serde_json::json!({
+                            "type": "theme",
+                            "palette": palette
+                        });
+                        if socket.send(Message::Text(msg.to_string().into())).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(RecvError::Lagged(_)) => {}
+                    Err(RecvError::Closed) => break,
+                }
+            }
+
             // Receive messages from the client (e.g. name identification, playback toggle)
             incoming = socket.recv() => {
                 match incoming {

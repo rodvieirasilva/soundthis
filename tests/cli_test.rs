@@ -92,3 +92,53 @@ async fn test_check_server_running_online() {
     assert!(cli::check_server_running(port).await);
     handle.abort();
 }
+
+#[tokio::test]
+async fn test_cli_commands_online() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let state = soundthis::state::AppState::new(
+        port,
+        "127.0.0.1".into(),
+        soundthis::config::Protocol::Http,
+    );
+    state
+        .add_client(soundthis::state::ClientInfo {
+            id: "test:1".into(),
+            name: "TestDevice".into(),
+            ip: "127.0.0.1".into(),
+            connected_at: 100,
+            listening: true,
+        })
+        .await;
+    let broadcaster = std::sync::Arc::new(soundthis::audio::AudioBroadcaster::new());
+    let config = ServerConfig {
+        port,
+        host: "127.0.0.1".into(),
+        ..Default::default()
+    };
+    let app = soundthis::server::build_app(state.clone(), broadcaster, &config);
+
+    let handle = tokio::spawn(async move {
+        let _ = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await;
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // Test cmd_status online
+    assert!(cli::cmd_status(&config).await.is_ok());
+
+    // Test cmd_toggle online
+    assert!(cli::cmd_toggle(&config).await.is_ok());
+
+    // Test cmd_set_enabled online
+    assert!(cli::cmd_set_enabled(&config, true).await.is_ok());
+    assert!(cli::cmd_set_enabled(&config, false).await.is_ok());
+
+    handle.abort();
+}

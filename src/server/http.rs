@@ -145,6 +145,17 @@ pub async fn handle_api_theme() -> impl IntoResponse {
     Json(palette)
 }
 
+pub async fn handle_api_theme_reload(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> impl IntoResponse {
+    let palette = crate::server::theme::ThemePalette::load_current();
+    state.broadcast_theme(palette.clone());
+    Json(serde_json::json!({
+        "ok": true,
+        "theme": palette
+    }))
+}
+
 pub async fn handle_api_qr_svg(
     axum::extract::State(state): axum::extract::State<AppState>,
 ) -> impl IntoResponse {

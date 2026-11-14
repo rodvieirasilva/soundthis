@@ -185,11 +185,22 @@ export class CanvasVisualizer {
     }
   }
 
+  private getThemeColors(): { accent: string; accentAlt: string } {
+    if (typeof document === "undefined") {
+      return { accent: "#7aa2f7", accentAlt: "#bb9af7" };
+    }
+    const rootStyle = getComputedStyle(document.documentElement);
+    const accent = rootStyle.getPropertyValue("--accent").trim() || "#7aa2f7";
+    const accentAlt = rootStyle.getPropertyValue("--green").trim() || "#bb9af7";
+    return { accent, accentAlt };
+  }
+
   private drawBars(width: number, height: number, fractions: number[]): void {
     const barCount = fractions.length;
     const barSpacing = 3;
     const totalSpacing = (barCount - 1) * barSpacing;
     const barWidth = Math.max(2, (width - totalSpacing) / barCount);
+    const colors = this.getThemeColors();
 
     for (let i = 0; i < barCount; i++) {
       const frac = fractions[i] ?? 0;
@@ -201,8 +212,8 @@ export class CanvasVisualizer {
 
       const grad = this.ctx.createLinearGradient(0, y, 0, y + barH);
       if (this.isLive && frac > 0.03) {
-        grad.addColorStop(0, "#bb9af7");
-        grad.addColorStop(1, "#7aa2f7");
+        grad.addColorStop(0, colors.accentAlt);
+        grad.addColorStop(1, colors.accent);
       } else {
         grad.addColorStop(0, "rgba(169, 177, 214, 0.18)");
         grad.addColorStop(1, "rgba(169, 177, 214, 0.06)");
@@ -220,6 +231,7 @@ export class CanvasVisualizer {
     const barSpacing = 3;
     const totalSpacing = (barCount - 1) * barSpacing;
     const barWidth = Math.max(2, (width - totalSpacing) / barCount);
+    const colors = this.getThemeColors();
 
     for (let i = 0; i < barCount; i++) {
       const frac = fractions[i] ?? 0;
@@ -231,9 +243,9 @@ export class CanvasVisualizer {
 
       const grad = this.ctx.createLinearGradient(0, y, 0, y + barH);
       if (this.isLive && frac > 0.03) {
-        grad.addColorStop(0, "#7aa2f7");
-        grad.addColorStop(0.5, "#bb9af7");
-        grad.addColorStop(1, "#7aa2f7");
+        grad.addColorStop(0, colors.accent);
+        grad.addColorStop(0.5, colors.accentAlt);
+        grad.addColorStop(1, colors.accent);
       } else {
         grad.addColorStop(0, "rgba(169, 177, 214, 0.18)");
         grad.addColorStop(1, "rgba(169, 177, 214, 0.06)");

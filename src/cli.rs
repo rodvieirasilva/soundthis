@@ -63,7 +63,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn has_gui_support() -> bool {
-    which_command_exists("qml6")
+    cfg!(feature = "gui")
 }
 
 pub fn has_gui_binary() -> bool {
@@ -329,6 +329,12 @@ pub async fn cmd_app(config: &ServerConfig) -> Result<(), Box<dyn std::error::Er
 }
 
 pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
+    if crate::ui::is_gui_running() {
+        println!("SoundThis desktop window is already open. Bringing window to focus.");
+        crate::ui::focus_existing_window();
+        return Ok(());
+    }
+
     let already_running = check_server_running(config.port).await;
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
@@ -368,10 +374,12 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
         tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     }
 
-    if which_command_exists("qml6") {
+    if has_gui_support() {
         let _ = crate::ui::run_desktop_ui(config.port);
     } else {
-        eprintln!("Notice: qml6 not found in PATH. Opening web control player instead.");
+        eprintln!(
+            "Notice: SoundThis compiled without GUI support. Opening web control player instead."
+        );
         let _ = cmd_open(config).await;
     }
 

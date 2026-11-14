@@ -12,8 +12,9 @@ Panel {
   moduleName: "soundthis"
   ipcTarget: "soundthis"
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  visible: root.serverOnline
+  implicitWidth: root.serverOnline ? button.implicitWidth : 0
+  implicitHeight: root.serverOnline ? button.implicitHeight : 0
 
   property bool serverOnline: false
   property bool serverEnabled: true
@@ -21,7 +22,7 @@ Panel {
   property var clients: []
   property string lanIp: "127.0.0.1"
   property int port: 9697
-  property string version: "0.3.2"
+  property string version: "0.4.0"
 
   readonly property color foreground: bar ? bar.barForeground : Commons.Color.foreground
   readonly property string clientUrl: "http://" + lanIp + ":" + port

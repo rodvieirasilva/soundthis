@@ -74,6 +74,7 @@ pub fn build_app(
         // API routes
         .route("/api/status", get(http::handle_api_status))
         .route("/api/theme", get(http::handle_api_theme))
+        .route("/api/theme/reload", post(http::handle_api_theme_reload))
         .route("/api/qr.svg", get(http::handle_api_qr_svg))
         .route("/api/copy", post(http::handle_api_copy))
         .route(

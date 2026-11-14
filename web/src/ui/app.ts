@@ -2,7 +2,7 @@ import { AudioStreamPlayer } from "../audio/player";
 import { CanvasVisualizer } from "../audio/visualizer";
 import { AudioWebSocketClient } from "../services/ws";
 import { ClientConfigStore } from "../services/storage";
-import { fetchAndApplyTheme } from "../services/theme";
+import { applyTheme, fetchAndApplyTheme, type ThemePalette } from "../services/theme";
 import type { ConnectionStatus, VisualizerMode } from "../audio/types";
 
 export class SoundThisApp {
@@ -41,6 +41,17 @@ export class SoundThisApp {
 
   public init(): void {
     void fetchAndApplyTheme();
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", () => void fetchAndApplyTheme());
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          void fetchAndApplyTheme();
+        }
+      });
+    }
+
     this.bindDOMElements();
     this.bindEvents();
 
@@ -206,10 +217,16 @@ export class SoundThisApp {
   }
 
   private handleStatusMessage(msg: unknown): void {
-    if (typeof msg === "object" && msg !== null && "enabled" in msg) {
-      const data = msg as { enabled: boolean };
-      if (!data.enabled && this.status === "live") {
-        this.setStatus("paused");
+    if (typeof msg === "object" && msg !== null) {
+      const data = msg as Record<string, unknown>;
+      if ("enabled" in data) {
+        const enabled = data.enabled as boolean;
+        if (!enabled && this.status === "live") {
+          this.setStatus("paused");
+        }
+      }
+      if (data.type === "theme" && data.palette) {
+        applyTheme(data.palette as ThemePalette);
       }
     }
   }

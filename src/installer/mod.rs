@@ -174,7 +174,24 @@ impl Installer {
             .arg(&apps_dir)
             .status();
 
-        // 5. Reload Omarchy shell if requested
+        // 5. Install Omarchy theme change hook
+        let hooks_dir = home.join(".config/omarchy/hooks/theme-set.d");
+        if fs::create_dir_all(&hooks_dir).is_ok() {
+            let hook_file = hooks_dir.join("soundthis");
+            let hook_content = "#!/usr/bin/env bash\ncurl -s -X POST http://127.0.0.1:9697/api/theme/reload >/dev/null 2>&1 || true\n";
+            let _ = fs::write(&hook_file, hook_content);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&hook_file, fs::Permissions::from_mode(0o755));
+            }
+            info!(
+                "Installed Omarchy theme-set hook to {}",
+                hook_file.display()
+            );
+        }
+
+        // 6. Reload Omarchy shell if requested
         if manage_systemd {
             info!("Reloading Omarchy shell...");
             let _ = Command::new("omarchy").args(["restart", "shell"]).status();
@@ -228,7 +245,14 @@ impl Installer {
             info!("Removed {}", icon_file.display());
         }
 
-        // 4. Remove from Omarchy shell.json
+        // 4. Remove Omarchy theme-set hook
+        let hook_file = home.join(".config/omarchy/hooks/theme-set.d/soundthis");
+        if hook_file.exists() {
+            let _ = fs::remove_file(&hook_file);
+            info!("Removed {}", hook_file.display());
+        }
+
+        // 5. Remove from Omarchy shell.json
         let shell_config_file = home.join(".config/omarchy/shell.json");
         if shell_config_file.exists() {
             if let Ok(content) = fs::read_to_string(&shell_config_file) {

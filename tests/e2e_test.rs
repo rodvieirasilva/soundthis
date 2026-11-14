@@ -55,6 +55,19 @@ async fn test_e2e_websocket_streaming_and_client_lifecycle() {
     assert_eq!(clients.len(), 1);
     assert_eq!(clients[0].name, "Living Room Phone");
 
+    // First message received is the theme sync message
+    let first = tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+        .await
+        .expect("Timeout waiting for theme message")
+        .expect("Stream ended")
+        .expect("WS error");
+    match first {
+        Message::Text(txt) => {
+            assert!(txt.contains("\"type\":\"theme\""));
+        }
+        other => panic!("Expected Text theme message, got {:?}", other),
+    }
+
     // Broadcast audio chunk and verify client receives binary frame
     let fake_pcm = vec![12u8, 34u8, 56u8, 78u8];
     broadcaster.broadcast_chunk(Arc::new(fake_pcm.clone()));
@@ -104,6 +117,14 @@ async fn test_e2e_websocket_paused_client_does_not_receive_binary_audio() {
     // Connect with ?listen=0 (paused by default, like web browser opening)
     let ws_url = format!("ws://{addr}/ws?listen=0");
     let (mut ws_stream, _) = connect_async(ws_url).await.unwrap();
+
+    // Consume initial theme sync message
+    let first = tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+        .await
+        .expect("Timeout waiting for theme message")
+        .expect("Stream ended")
+        .expect("WS error");
+    assert!(matches!(first, Message::Text(_)));
 
     tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
     let clients = state.get_clients().await;
@@ -198,6 +219,14 @@ async fn test_e2e_stream_enable_disable_lifecycle() {
     let (mut ws_stream, _) = connect_async(ws_url).await.unwrap();
     tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
+    // Consume initial theme packet
+    let theme_msg = tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(matches!(theme_msg, Message::Text(_)));
+
     // 1. When enabled, broadcast chunk is received
     assert!(state.is_enabled());
     let chunk1 = vec![1u8, 2u8, 3u8];
@@ -240,6 +269,68 @@ async fn test_e2e_stream_enable_disable_lifecycle() {
         assert_eq!(bin.as_ref(), chunk3.as_slice());
     } else {
         panic!("Expected binary frame");
+    }
+
+    ws_stream.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_e2e_websocket_live_theme_broadcast() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let state = AppState::new(addr.port(), "127.0.0.1".into(), Protocol::Http);
+    let broadcaster = Arc::new(AudioBroadcaster::new());
+    let config = ServerConfig::default();
+
+    let app = build_app(state.clone(), broadcaster.clone(), &config);
+
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+
+    let ws_url = format!("ws://{addr}/ws");
+    let (mut ws_stream, _) = connect_async(ws_url).await.unwrap();
+
+    // 1. Initial theme received on connection
+    let first = tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    match first {
+        Message::Text(txt) => assert!(txt.contains("\"type\":\"theme\"")),
+        _ => panic!("Expected theme text packet"),
+    }
+
+    // 2. Trigger /api/theme/reload
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("http://{addr}/api/theme/reload"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), reqwest::StatusCode::OK);
+
+    // 3. Client receives pushed theme update over WebSocket without page reload
+    let update_msg =
+        tokio::time::timeout(tokio::time::Duration::from_millis(500), ws_stream.next())
+            .await
+            .expect("Timeout waiting for theme update")
+            .expect("Stream ended")
+            .expect("WS error");
+
+    match update_msg {
+        Message::Text(txt) => {
+            assert!(txt.contains("\"type\":\"theme\""));
+            assert!(txt.contains("\"palette\""));
+        }
+        _ => panic!("Expected theme update packet"),
     }
 
     ws_stream.close(None).await.unwrap();
@@ -441,4 +532,49 @@ async fn test_e2e_server_run_server_https() {
 
     handle.abort();
     let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[tokio::test]
+async fn test_server_memory_and_resource_bounds() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let state = AppState::new(addr.port(), "127.0.0.1".into(), Protocol::Http);
+    let broadcaster = Arc::new(AudioBroadcaster::new());
+    let config = ServerConfig::default();
+
+    let app = build_app(state.clone(), broadcaster.clone(), &config);
+
+    let handle = tokio::spawn(async move {
+        let _ = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await;
+    });
+
+    // Feed multiple audio chunks through broadcaster
+    let dummy_chunk = Arc::new(vec![0u8; 3840]);
+    for _ in 0..100 {
+        broadcaster.broadcast_chunk(dummy_chunk.clone());
+    }
+
+    // Verify /proc/self/status VmRSS is bounded
+    if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
+        for line in status.lines() {
+            if line.starts_with("VmRSS:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(kb_str) = parts.get(1) {
+                    if let Ok(kb) = kb_str.parse::<u64>() {
+                        assert!(
+                            kb < 100_000,
+                            "Server memory exceeded safety threshold: {kb} kB"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    handle.abort();
 }

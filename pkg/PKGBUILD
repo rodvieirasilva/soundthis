@@ -1,13 +1,13 @@
 # Maintainer: Rodrigo Vieira <rodvieirasilva@gmail.com>
 
 pkgname=soundthis
-pkgver=0.3.2
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Real-time desktop audio streaming server for Omarchy Linux"
 arch=('x86_64' 'aarch64')
 url="https://github.com/rodvieirasilva/soundthis"
 license=('MIT')
-depends=('gcc-libs' 'glibc' 'libpulse' 'qt6-base' 'qt6-declarative' 'qt6-quickcontrols2')
+depends=('gcc-libs' 'glibc' 'libpulse' 'gtk4' 'libadwaita')
 optdepends=(
   'omarchy: native Omarchy desktop bar widget and popout panel'
 )

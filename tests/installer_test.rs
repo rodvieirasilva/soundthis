@@ -47,6 +47,9 @@ fn test_installer_install_and_uninstall_lifecycle() {
     let icon_file = temp_dir.join(".local/share/icons/hicolor/scalable/apps/soundthis.svg");
     assert!(icon_file.exists());
 
+    let hook_file = temp_dir.join(".config/omarchy/hooks/theme-set.d/soundthis");
+    assert!(hook_file.exists());
+
     let updated_shell: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(shell_dir.join("shell.json")).unwrap())
             .unwrap();
@@ -62,6 +65,7 @@ fn test_installer_install_and_uninstall_lifecycle() {
     assert!(!manifest_file.exists());
     assert!(!desktop_file.exists());
     assert!(!icon_file.exists());
+    assert!(!hook_file.exists());
 
     let uninstalled_shell: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(shell_dir.join("shell.json")).unwrap())

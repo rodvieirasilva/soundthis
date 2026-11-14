@@ -193,6 +193,22 @@ async fn test_http_api_routes() {
         "application/json"
     );
 
+    // Test /api/theme/reload
+    let mut theme_sub = state.subscribe_theme();
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/theme/reload")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(theme_sub.try_recv().is_ok());
+
     // Test /api/qr.svg
     let response = app
         .clone()

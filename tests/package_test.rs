@@ -15,7 +15,8 @@ fn test_packaging_metadata_and_templates_validity() {
     assert!(pkgbuild.contains("arch=('x86_64' 'aarch64')"));
     assert!(pkgbuild.contains("install=soundthis.install"));
     assert!(pkgbuild.contains("libpulse"));
-    assert!(pkgbuild.contains("qt6-base"));
+    assert!(pkgbuild.contains("gtk4"));
+    assert!(pkgbuild.contains("libadwaita"));
     assert!(pkgbuild.contains("/usr/bin/soundthis"));
     assert!(pkgbuild.contains("/usr/lib/systemd/user/soundthis.service"));
     assert!(pkgbuild.contains("/usr/share/applications/soundthis.desktop"));
@@ -85,7 +86,6 @@ fn test_package_staging_and_filesystem_layout() {
         pkg_dir.join("soundthis.install"),
         pkg_dir.join("soundthis.desktop"),
         pkg_dir.join("soundthis.svg"),
-        manifest_dir.join("ui/Main.qml"),
         manifest_dir.join("plugin/manifest.json"),
         manifest_dir.join("plugin/Panel.qml"),
         manifest_dir.join("systemd/soundthis.service.template"),

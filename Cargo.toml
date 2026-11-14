@@ -1,6 +1,6 @@
 [package]
 name = "soundthis"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 authors = ["Rodrigo Vieira <rodvieirasilva@gmail.com>"]
 description = "Real-time desktop audio streaming server for Omarchy"
@@ -27,10 +27,16 @@ rcgen = "0.14"
 clap = { version = "4.5", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 anyhow = "1.0"
 async-trait = "0.1"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+gtk4 = { version = "0.9", optional = true }
+adw = { version = "0.7", package = "libadwaita", optional = true }
+
+[features]
+default = ["gui"]
+gui = ["dep:gtk4", "dep:adw"]
 
 [dev-dependencies]
 tokio = { version = "1.43", features = ["test-util"] }

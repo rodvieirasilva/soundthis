@@ -125,6 +125,14 @@ description = "Compile release binary, update ~/.cargo/bin, reinstall plugin, an
 depends = ["build"]
 run = "cp --remove-destination target/release/soundthis ~/.cargo/bin/soundthis && soundthis install && omarchy restart shell"
 
+[tasks."docker:build"]
+description = "Build container image for SoundThis"
+run = "docker build -t soundthis:latest ."
+
+[tasks."docker:run"]
+description = "Run SoundThis in Docker container sharing host audio socket"
+run = "./scripts/docker-run.sh"
+
 [tasks."service:logs"]
 description = "Tail systemd user service logs for soundthis"
 run = "journalctl --user -u soundthis -f -n 50"

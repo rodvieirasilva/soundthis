@@ -23,6 +23,7 @@ fn default_listening() -> bool {
 pub struct AppState {
     enabled: Arc<AtomicBool>,
     clients: Arc<RwLock<HashMap<String, ClientInfo>>>,
+    theme_tx: tokio::sync::broadcast::Sender<crate::server::theme::ThemePalette>,
     pub port: u16,
     pub lan_ip: String,
     pub protocol: Protocol,
@@ -42,13 +43,25 @@ pub struct StatusResponse {
 
 impl AppState {
     pub fn new(port: u16, lan_ip: String, protocol: Protocol) -> Self {
+        let (theme_tx, _) = tokio::sync::broadcast::channel(32);
         Self {
             enabled: Arc::new(AtomicBool::new(true)),
             clients: Arc::new(RwLock::new(HashMap::new())),
+            theme_tx,
             port,
             lan_ip,
             protocol,
         }
+    }
+
+    pub fn broadcast_theme(&self, palette: crate::server::theme::ThemePalette) {
+        let _ = self.theme_tx.send(palette);
+    }
+
+    pub fn subscribe_theme(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::server::theme::ThemePalette> {
+        self.theme_tx.subscribe()
     }
 
     pub fn is_enabled(&self) -> bool {
