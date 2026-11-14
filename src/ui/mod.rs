@@ -97,6 +97,28 @@ pub fn is_gui_running() -> bool {
     is_gui_running_from(&get_gui_pid_file())
 }
 
+pub fn stop_gui_process() -> bool {
+    stop_gui_process_from(&get_gui_pid_file())
+}
+
+pub fn stop_gui_process_from(pid_file: &std::path::Path) -> bool {
+    let content = match std::fs::read_to_string(pid_file) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let pid: u32 = match content.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            let _ = std::fs::remove_file(pid_file);
+            return false;
+        }
+    };
+
+    let _ = Command::new("kill").arg(pid.to_string()).status();
+    let _ = std::fs::remove_file(pid_file);
+    true
+}
+
 pub fn is_gui_running_from(pid_file: &std::path::Path) -> bool {
     let content = match std::fs::read_to_string(pid_file) {
         Ok(c) => c,
@@ -259,6 +281,17 @@ mod tests {
         let tmp = std::env::temp_dir().join(format!("test_invalid_pid_{}.pid", std::process::id()));
         std::fs::write(&tmp, "not_a_number").unwrap();
         assert!(!is_gui_running_from(&tmp));
+        assert!(!tmp.exists());
+    }
+
+    #[test]
+    fn test_stop_gui_process_missing_and_invalid() {
+        let tmp = std::env::temp_dir().join(format!("test_stop_pid_{}.pid", std::process::id()));
+        let _ = std::fs::remove_file(&tmp);
+        assert!(!stop_gui_process_from(&tmp));
+
+        std::fs::write(&tmp, "invalid").unwrap();
+        assert!(!stop_gui_process_from(&tmp));
         assert!(!tmp.exists());
     }
 

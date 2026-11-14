@@ -49,10 +49,14 @@ Panel {
     root.close()
   }
 
-  function stopServer() {
+  function exitApp() {
     if (bar) bar.run("soundthis stop")
     root.serverOnline = false
     root.close()
+  }
+
+  function stopServer() {
+    exitApp()
   }
 
   function startServer() {
@@ -254,10 +258,10 @@ Panel {
 
           Button {
             Layout.fillWidth: true
-            text: "Stop Server"
-            iconText: "󰓛"
+            text: "Exit"
+            iconText: "󰗼"
             bordered: true
-            onClicked: root.stopServer()
+            onClicked: root.exitApp()
           }
         }
 

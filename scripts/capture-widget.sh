@@ -28,11 +28,11 @@ if ! curl -fsS --max-time 1 http://127.0.0.1:9697/api/status >/dev/null 2>&1; th
   sleep 1
 fi
 
-# 4. Calculate exact panel geometry based on focused monitor
-FOCUSED=$(hyprctl monitors -j | jq -r '.[] | select(.focused)')
-MON_X=$(echo "$FOCUSED" | jq -r '.x')
-MON_Y=$(echo "$FOCUSED" | jq -r '.y')
-MON_W=$(echo "$FOCUSED" | jq -r '.width')
+# 4. Calculate exact panel geometry based on primary display (monitor id 0)
+MONITOR=$(hyprctl monitors -j | jq -r '(.[] | select(.id == 0)) // .[0]')
+MON_X=$(echo "$MONITOR" | jq -r '.x')
+MON_Y=$(echo "$MONITOR" | jq -r '.y')
+MON_W=$(echo "$MONITOR" | jq -r '.width')
 
 # The Omarchy SoundThis panel card has width=360, height=380, anchored 30px from right margin
 CARD_X=$(( MON_X + MON_W - 390 ))

@@ -32,7 +32,8 @@ pub fn run_gtk_app(port: u16) -> Result<(), Box<dyn std::error::Error>> {
             return;
         }
 
-        build_ui(app, *port_rc);
+        let window = build_ui_window(Some(app), *port_rc);
+        window.present();
     });
 
     let empty_args: [&str; 0] = [];
@@ -41,13 +42,16 @@ pub fn run_gtk_app(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn build_ui(app: &adw::Application, port: u16) {
-    let window = adw::ApplicationWindow::builder()
-        .application(app)
+pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::ApplicationWindow {
+    let mut builder = adw::ApplicationWindow::builder()
         .title("SoundThis")
         .default_width(440)
-        .default_height(640)
-        .build();
+        .default_height(640);
+    if let Some(a) = app {
+        builder = builder.application(a);
+    }
+    let window = builder.build();
+    window.set_widget_name("main-window");
 
     let header = adw::HeaderBar::new();
     let title = adw::WindowTitle::new("SoundThis", "Desktop Audio Streaming");
@@ -61,11 +65,13 @@ fn build_ui(app: &adw::Application, port: u16) {
         .build();
 
     let stream_switch = gtk4::Switch::builder()
+        .name("stream-switch")
         .active(true)
         .valign(gtk4::Align::Center)
         .build();
 
     let broadcast_row = adw::ActionRow::builder()
+        .name("broadcast-row")
         .title("Broadcasting")
         .subtitle("Stream audio from this computer")
         .build();
@@ -83,11 +89,13 @@ fn build_ui(app: &adw::Application, port: u16) {
         .build();
 
     let url_row = adw::ActionRow::builder()
+        .name("url-row")
         .title("Stream URL")
         .subtitle(&stream_url)
         .build();
 
     let copy_btn = gtk4::Button::builder()
+        .name("copy-btn")
         .icon_name("edit-copy-symbolic")
         .valign(gtk4::Align::Center)
         .tooltip_text("Copy stream URL")
@@ -99,6 +107,7 @@ fn build_ui(app: &adw::Application, port: u16) {
     });
 
     let open_btn = gtk4::Button::builder()
+        .name("open-btn")
         .icon_name("external-link-symbolic")
         .valign(gtk4::Align::Center)
         .tooltip_text("Open in browser")
@@ -116,6 +125,7 @@ fn build_ui(app: &adw::Application, port: u16) {
     connect_group.add(&url_row);
 
     // QR code display
+    let mut picture_weak = None;
     let palette = crate::server::theme::ThemePalette::load_current();
     if let Ok(svg_data) = palette.generate_qr_svg(&stream_url) {
         let qr_row = adw::ActionRow::builder().title("Scan QR Code").build();
@@ -129,10 +139,12 @@ fn build_ui(app: &adw::Application, port: u16) {
             None::<&gio::Cancellable>,
         ) {
             let picture = gtk4::Picture::for_pixbuf(&pixbuf);
+            picture.set_widget_name("qr-picture");
             picture.set_can_shrink(false);
             picture.set_halign(gtk4::Align::Center);
             picture.set_margin_top(8);
             picture.set_margin_bottom(8);
+            picture_weak = Some(picture.downgrade());
             connect_group.add(&picture);
         } else {
             connect_group.add(&qr_row);
@@ -147,6 +159,7 @@ fn build_ui(app: &adw::Application, port: u16) {
         .description("No devices currently connected")
         .build();
     let listeners_row = adw::ActionRow::builder()
+        .name("listeners-row")
         .title("Active Listeners")
         .subtitle("0 devices listening")
         .build();
@@ -160,11 +173,13 @@ fn build_ui(app: &adw::Application, port: u16) {
 
     let keep_cfg = crate::ui::read_gui_config();
     let keep_row = adw::ActionRow::builder()
+        .name("keep-row")
         .title("Keep streaming on close")
         .subtitle("Continue streaming in Omarchy bar when this window closes")
         .build();
 
     let keep_switch = gtk4::Switch::builder()
+        .name("keep-switch")
         .active(keep_cfg.keep_streaming)
         .valign(gtk4::Align::Center)
         .build();
@@ -200,15 +215,57 @@ fn build_ui(app: &adw::Application, port: u16) {
         });
     });
 
-    // Periodic telemetry update (listeners, streaming state)
+    // Omarchy theme setup
+    let css_provider = gtk4::CssProvider::new();
+    let current_palette = Rc::new(std::cell::RefCell::new(
+        crate::server::theme::ThemePalette::load_current(),
+    ));
+    apply_theme(&css_provider, &current_palette.borrow());
+    if let Some(display) = gtk4::gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &css_provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+
+    // Periodic telemetry update (listeners, streaming state, theme)
     let switch_weak = stream_switch.downgrade();
     let listeners_row_weak = listeners_row.downgrade();
     let listeners_group_weak = listeners_group.downgrade();
     let is_updating_timer = is_updating.clone();
+    let css_provider_timer = css_provider.clone();
+    let palette_timer = current_palette.clone();
+    let stream_url_clone = stream_url.clone();
     glib::timeout_add_local(std::time::Duration::from_millis(1500), move || {
         let Some(sw) = switch_weak.upgrade() else {
             return glib::ControlFlow::Break;
         };
+
+        // Live theme synchronization
+        let new_palette = crate::server::theme::ThemePalette::load_current();
+        if new_palette != *palette_timer.borrow() {
+            *palette_timer.borrow_mut() = new_palette.clone();
+            apply_theme(&css_provider_timer, &new_palette);
+
+            if let Some(ref p_weak) = picture_weak {
+                if let Some(pic) = p_weak.upgrade() {
+                    if let Ok(svg_data) = new_palette.generate_qr_svg(&stream_url_clone) {
+                        let bytes = glib::Bytes::from(svg_data.as_bytes());
+                        let stream = gio::MemoryInputStream::from_bytes(&bytes);
+                        if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_stream_at_scale(
+                            &stream,
+                            200,
+                            200,
+                            true,
+                            None::<&gio::Cancellable>,
+                        ) {
+                            pic.set_pixbuf(Some(&pixbuf));
+                        }
+                    }
+                }
+            }
+        }
 
         if let Ok(status) = fetch_status(port) {
             is_updating_timer.store(true, Ordering::SeqCst);
@@ -253,31 +310,79 @@ fn build_ui(app: &adw::Application, port: u16) {
         glib::Propagation::Proceed
     });
 
-    // Apply Omarchy theme styling
-    apply_css_theme();
+    window
+}
 
-    window.present();
+pub fn find_widget_by_name<W: glib::object::IsA<gtk4::Widget>>(
+    root: &gtk4::Widget,
+    name: &str,
+) -> Option<W> {
+    if root.widget_name() == name {
+        return root.clone().downcast::<W>().ok();
+    }
+    let mut child = root.first_child();
+    while let Some(c) = child {
+        if let Some(found) = find_widget_by_name::<W>(&c, name) {
+            return Some(found);
+        }
+        child = c.next_sibling();
+    }
+    None
 }
 
 pub fn build_theme_css(palette: &crate::server::theme::ThemePalette) -> String {
+    let accent_fg = if palette.mode == "light" {
+        "#ffffff"
+    } else {
+        &palette.darker_background
+    };
     format!(
-        "window {{ background-color: {}; color: {}; }}",
-        palette.background, palette.bright_foreground
+        r#"
+@define-color window_bg_color {bg};
+@define-color window_fg_color {fg};
+@define-color view_bg_color {bg};
+@define-color view_fg_color {fg};
+@define-color headerbar_bg_color {dark_bg};
+@define-color headerbar_fg_color {fg};
+@define-color card_bg_color {card_bg};
+@define-color card_fg_color {fg};
+@define-color accent_color {accent};
+@define-color accent_bg_color {accent};
+@define-color accent_fg_color {accent_fg};
+
+window, window.background, .background, preferencespage, scrolledwindow, viewport {{
+    background-color: {bg};
+    color: {fg};
+}}
+
+headerbar {{
+    background-color: {dark_bg};
+    color: {fg};
+}}
+
+.boxed-list, row {{
+    background-color: {card_bg};
+    color: {fg};
+}}
+"#,
+        bg = palette.background,
+        fg = palette.bright_foreground,
+        dark_bg = palette.dark_background,
+        card_bg = palette.lighter_background,
+        accent = palette.accent,
+        accent_fg = accent_fg,
     )
 }
 
-fn apply_css_theme() {
-    let palette = crate::server::theme::ThemePalette::load_current();
-    let css = build_theme_css(&palette);
-    let provider = gtk4::CssProvider::new();
-    provider.load_from_data(&css);
-    if let Some(display) = gtk4::gdk::Display::default() {
-        gtk4::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+pub fn apply_theme(provider: &gtk4::CssProvider, palette: &crate::server::theme::ThemePalette) {
+    let style_manager = adw::StyleManager::default();
+    if palette.mode == "light" {
+        style_manager.set_color_scheme(adw::ColorScheme::ForceLight);
+    } else {
+        style_manager.set_color_scheme(adw::ColorScheme::ForceDark);
     }
+    let css = build_theme_css(palette);
+    provider.load_from_data(&css);
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -332,7 +437,7 @@ mod tests {
     fn test_build_theme_css() {
         let palette = crate::server::theme::ThemePalette::default();
         let css = build_theme_css(&palette);
-        assert!(css.contains("window {"));
+        assert!(css.contains("@define-color window_bg_color"));
         assert!(css.contains(&palette.background));
         assert!(css.contains(&palette.bright_foreground));
     }
@@ -365,10 +470,57 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_css_theme_does_not_panic() {
-        if gtk4::init().is_ok() {
-            apply_css_theme();
+    fn test_ui_widget_tree_and_simulation() {
+        if gtk4::init().is_err() || adw::init().is_err() {
+            return;
         }
+
+        // Verify CSS theme loading on the initialized GTK display
+        let provider = gtk4::CssProvider::new();
+        apply_theme(&provider, &crate::server::theme::ThemePalette::default());
+
+        let window = build_ui_window(None, 50123);
+        let root = window.upcast_ref::<gtk4::Widget>();
+
+        // 1. Find widgets by test-id (widget_name)
+        let stream_sw: gtk4::Switch =
+            find_widget_by_name(root, "stream-switch").expect("stream-switch widget must exist");
+        let keep_sw: gtk4::Switch =
+            find_widget_by_name(root, "keep-switch").expect("keep-switch widget must exist");
+        let copy_btn: gtk4::Button =
+            find_widget_by_name(root, "copy-btn").expect("copy-btn widget must exist");
+        let open_btn: gtk4::Button =
+            find_widget_by_name(root, "open-btn").expect("open-btn widget must exist");
+        let listeners_row: adw::ActionRow =
+            find_widget_by_name(root, "listeners-row").expect("listeners-row widget must exist");
+
+        assert!(stream_sw.is_active());
+        assert_eq!(listeners_row.title(), "Active Listeners");
+        assert_eq!(open_btn.tooltip_text().as_deref(), Some("Open in browser"));
+        assert_eq!(copy_btn.tooltip_text().as_deref(), Some("Copy stream URL"));
+
+        // 2. Simulate user click on copy button
+        copy_btn.emit_clicked();
+
+        // 3. Simulate user toggling keep-switch
+        let orig_keep = keep_sw.is_active();
+        keep_sw.set_active(!orig_keep);
+
+        // Process pending GTK/GLib main context events
+        let ctx = glib::MainContext::default();
+        while ctx.iteration(false) {}
+
+        assert_eq!(keep_sw.is_active(), !orig_keep);
+
+        // Verify config updated
+        let cfg = crate::ui::read_gui_config();
+        assert_eq!(cfg.keep_streaming, !orig_keep);
+
+        // Restore original setting
+        keep_sw.set_active(orig_keep);
+        while ctx.iteration(false) {}
+        let cfg_restored = crate::ui::read_gui_config();
+        assert_eq!(cfg_restored.keep_streaming, orig_keep);
     }
 
     #[test]

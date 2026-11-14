@@ -456,18 +456,26 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
 }
 
 pub async fn cmd_stop(config: &ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Try to stop systemd user service if running
+    // 1. Terminate GUI application window if running
+    crate::ui::stop_gui_process();
+
+    // 2. Try to stop systemd user service if running
     let _ = Command::new("systemctl")
         .args(["--user", "stop", "soundthis.service"])
         .status();
 
-    // 2. Try disabling active streaming via HTTP API
+    // 3. Try disabling active streaming via HTTP API
     let scheme = config.protocol.scheme();
     let client = make_http_client();
     let _ = client
         .post(format!("{scheme}://127.0.0.1:{}/api/disable", config.port))
         .send()
         .await;
+
+    // 4. Terminate any standalone 'soundthis serve' processes
+    let _ = Command::new("pkill")
+        .args(["-f", "soundthis serve"])
+        .status();
 
     println!("SoundThis audio streaming service stopped.");
     Ok(())
