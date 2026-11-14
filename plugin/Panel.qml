@@ -44,6 +44,17 @@ Panel {
     if (bar) bar.run("xdg-open " + root.clientUrl)
   }
 
+  function openApp() {
+    if (bar) bar.run("soundthis")
+    root.close()
+  }
+
+  function stopServer() {
+    if (bar) bar.run("soundthis stop")
+    root.serverOnline = false
+    root.close()
+  }
+
   function startServer() {
     if (bar) bar.run("systemctl --user start soundthis || soundthis serve &")
     refreshTimer.interval = 500
@@ -207,7 +218,28 @@ Panel {
           }
         }
 
-        // Action Buttons Row
+        // Action Buttons
+        RowLayout {
+          width: parent.width
+          spacing: Style.space(8)
+
+          Button {
+            Layout.fillWidth: true
+            text: "Open App"
+            iconText: "󰍹"
+            bordered: true
+            onClicked: root.openApp()
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: "Open Web UI"
+            iconText: "󰖟"
+            bordered: true
+            onClicked: root.openBrowser()
+          }
+        }
+
         RowLayout {
           width: parent.width
           spacing: Style.space(8)
@@ -222,10 +254,10 @@ Panel {
 
           Button {
             Layout.fillWidth: true
-            text: "Open Web UI"
-            iconText: "󰖟"
+            text: "Stop Server"
+            iconText: "󰓛"
             bordered: true
-            onClicked: root.openBrowser()
+            onClicked: root.stopServer()
           }
         }
 

@@ -34,11 +34,11 @@ MON_X=$(echo "$FOCUSED" | jq -r '.x')
 MON_Y=$(echo "$FOCUSED" | jq -r '.y')
 MON_W=$(echo "$FOCUSED" | jq -r '.width')
 
-# The Omarchy SoundThis panel card has width=360, height=330, anchored 30px from right margin
+# The Omarchy SoundThis panel card has width=360, height=380, anchored 30px from right margin
 CARD_X=$(( MON_X + MON_W - 390 ))
 CARD_Y=$(( MON_Y + 31 ))
 CARD_W=360
-CARD_H=330
+CARD_H=380
 GEOM="${CARD_X},${CARD_Y} ${CARD_W}x${CARD_H}"
 
 # 5. Open widget via quickshell IPC
