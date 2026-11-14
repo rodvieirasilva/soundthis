@@ -50,6 +50,14 @@ run = "./scripts/capture-app.sh"
 description = "Capture live Omarchy desktop bar widget and popout panel screenshot"
 run = "./scripts/capture-widget.sh"
 
+[tasks."screenshots:gif"]
+description = "Generate animated GIF showing live theme sync across Web, Desktop App, and Widget"
+run = "./scripts/create-theme-gif.sh"
+
+[tasks.gif]
+description = "Alias for screenshots:gif"
+depends = ["screenshots:gif"]
+
 [tasks.screenshots]
 description = "Generate complete set of documentation screenshots (web, desktop app, and widget)"
 depends = ["screenshots:web", "screenshots:app", "screenshots:widget"]

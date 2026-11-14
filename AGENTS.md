@@ -167,6 +167,9 @@ mise run reinstall
 
 # Refresh documentation screenshots (web desktop/mobile + Omarchy panel)
 mise run screenshots
+
+# Generate animated GIF showing live theme sync across all interfaces
+mise run gif
 ```
 
 ---

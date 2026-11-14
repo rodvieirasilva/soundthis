@@ -463,20 +463,44 @@ pub fn parse_status_json(val: &serde_json::Value) -> SimpleStatus {
 }
 
 pub fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(400))
-        .build()?;
-    let res: serde_json::Value = client
-        .get(format!("http://127.0.0.1:{port}/api/status"))
-        .send()?
-        .json()?;
-    Ok(parse_status_json(&res))
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect_timeout(
+        &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
+        std::time::Duration::from_millis(400),
+    )?;
+    stream.set_read_timeout(Some(std::time::Duration::from_millis(400)))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(400)))?;
+
+    let req =
+        format!("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes())?;
+
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp)?;
+
+    if let Some(body_idx) = resp.find("\r\n\r\n") {
+        let body = &resp[body_idx + 4..];
+        let val: serde_json::Value = serde_json::from_str(body)?;
+        return Ok(parse_status_json(&val));
+    }
+    Err("Invalid HTTP response".into())
 }
 
 pub fn ureq_post(url: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()?;
-    client.post(url).send()?;
+    use std::io::Write;
+    let trimmed = url.trim_start_matches("http://");
+    let (host_port, path) = match trimmed.split_once('/') {
+        Some((hp, p)) => (hp, format!("/{p}")),
+        None => (trimmed, "/".to_string()),
+    };
+    let addr: std::net::SocketAddr = host_port.parse()?;
+    let mut stream =
+        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(400))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(400)))?;
+
+    let req = format!(
+        "POST {path} HTTP/1.1\r\nHost: {host_port}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    stream.write_all(req.as_bytes())?;
     Ok(())
 }
