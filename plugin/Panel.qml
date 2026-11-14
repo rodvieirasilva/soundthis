@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import qs.Commons
@@ -22,7 +23,7 @@ Panel {
   property var clients: []
   property string lanIp: "127.0.0.1"
   property int port: 9697
-  property string version: "0.4.0"
+  property string version: "0.5.0"
 
   readonly property color foreground: bar ? bar.barForeground : Commons.Color.foreground
   readonly property string clientUrl: "http://" + lanIp + ":" + port
@@ -112,6 +113,82 @@ Panel {
     }
   }
 
+  component SoundThisBarIcon: Item {
+    id: barIconRoot
+    property real iconSize: Style.font.icon
+    property color color: Commons.Color.foreground
+
+    width: iconSize
+    height: iconSize
+    implicitWidth: iconSize
+    implicitHeight: iconSize
+
+    Shape {
+      preferredRendererType: Shape.CurveRenderer
+      width: 24
+      height: 24
+      scale: barIconRoot.iconSize / 24
+      transformOrigin: Item.TopLeft
+
+      ShapePath {
+        strokeColor: barIconRoot.color
+        strokeWidth: 2.4
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        joinStyle: ShapePath.RoundJoin
+        PathSvg {
+          path: "M6.5 17.5 C3.2 14.2 3.2 9.8 6.5 6.5 M17.5 6.5 C20.8 9.8 20.8 14.2 17.5 17.5"
+        }
+      }
+    }
+
+    Rectangle {
+      x: (barIconRoot.width - width) / 2
+      y: (barIconRoot.height - height) / 2
+      width: barIconRoot.iconSize * (5.2 / 24.0)
+      height: width
+      radius: width / 2
+      color: barIconRoot.color
+    }
+  }
+
+  component SoundThisHeroIcon: Item {
+    id: heroIconRoot
+    property color color: Commons.Color.accent
+
+    width: Style.space(36)
+    height: Style.space(36)
+    implicitWidth: width
+    implicitHeight: height
+
+    Shape {
+      anchors.fill: parent
+      preferredRendererType: Shape.CurveRenderer
+      scale: parent.width / 40.0
+      transformOrigin: Item.Center
+
+      ShapePath {
+        strokeColor: heroIconRoot.color
+        strokeWidth: 3.2
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        joinStyle: ShapePath.RoundJoin
+        PathSvg {
+          path: "M 8.2 31.8 C 1.7 25.3 1.7 14.7 8.2 8.2 M 13 27 C 9.2 23.2 9.2 16.8 13 13 M 27 13 C 30.8 16.8 30.8 23.2 27 27 M 31.8 8.2 C 38.3 14.7 38.3 25.3 31.8 31.8"
+        }
+      }
+
+      ShapePath {
+        strokeColor: "transparent"
+        strokeWidth: 0
+        fillColor: heroIconRoot.color
+        PathSvg {
+          path: "M 16.7 20 a 3.3 3.3 0 1 0 6.6 0 a 3.3 3.3 0 1 0 -6.6 0"
+        }
+      }
+    }
+  }
+
   Component.onCompleted: {
     root.refreshStatus()
   }
@@ -120,8 +197,13 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: ""
-    opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.35
+    iconComponent: Component {
+      SoundThisBarIcon {
+        iconSize: button.iconSize
+        color: (root.serverOnline && root.serverEnabled) ? Commons.Color.accent : root.foreground
+        opacity: (root.serverOnline && root.serverEnabled) ? 1.0 : 0.35
+      }
+    }
     tooltipText: root.serverOnline
       ? (root.serverEnabled
           ? "SoundThis v" + root.version + ": Sharing on " + root.clientUrl + (root.clientCount > 0 ? " (" + root.clientCount + " listening)" : "")
@@ -170,11 +252,7 @@ Panel {
           foreground: root.foreground
 
           iconComponent: Component {
-            Text {
-              text: ""
-              textFormat: Text.PlainText
-              font.family: Style.font.family
-              font.pixelSize: Style.font.display
+            SoundThisHeroIcon {
               color: (root.serverOnline && root.serverEnabled) ? Commons.Color.accent : Qt.darker(root.foreground, 1.5)
             }
           }
@@ -222,13 +300,14 @@ Panel {
           }
         }
 
-        // Action Buttons
+        // Action Buttons: 60/40 visual pattern (Primary action larger, then secondary action)
         RowLayout {
           width: parent.width
           spacing: Style.space(8)
 
           Button {
             Layout.fillWidth: true
+            Layout.preferredWidth: 60
             text: "Open App"
             iconText: "󰍹"
             bordered: true
@@ -237,10 +316,11 @@ Panel {
 
           Button {
             Layout.fillWidth: true
-            text: "Open Web UI"
-            iconText: "󰖟"
+            Layout.preferredWidth: 40
+            text: "Copy Link"
+            iconText: "󰆏"
             bordered: true
-            onClicked: root.openBrowser()
+            onClicked: root.copyUrl()
           }
         }
 
@@ -250,14 +330,16 @@ Panel {
 
           Button {
             Layout.fillWidth: true
-            text: "Copy Link"
-            iconText: "󰆏"
+            Layout.preferredWidth: 60
+            text: "Open Web UI"
+            iconText: "󰖟"
             bordered: true
-            onClicked: root.copyUrl()
+            onClicked: root.openBrowser()
           }
 
           Button {
             Layout.fillWidth: true
+            Layout.preferredWidth: 40
             text: "Exit"
             iconText: "󰗼"
             bordered: true

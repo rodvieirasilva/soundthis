@@ -114,6 +114,10 @@ pub fn stop_gui_process_from(pid_file: &std::path::Path) -> bool {
         }
     };
 
+    if pid == std::process::id() {
+        return false;
+    }
+
     let _ = Command::new("kill").arg(pid.to_string()).status();
     let _ = std::fs::remove_file(pid_file);
     true

@@ -37,7 +37,16 @@ if [ -z "$BIN" ]; then
   BIN="${ROOT_DIR}/target/debug/soundthis"
 fi
 
-# 3. Quickshell and Monitor detection
+# 3. Quickshell, Plugin sync, and Monitor detection
+PLUGIN_DEST="${HOME}/.config/omarchy/plugins/soundthis"
+if [ -d "$PLUGIN_DEST" ]; then
+  if ! cmp -s "${ROOT_DIR}/plugin/Panel.qml" "${PLUGIN_DEST}/Panel.qml"; then
+    cp -f "${ROOT_DIR}/plugin/Panel.qml" "${PLUGIN_DEST}/Panel.qml"
+    omarchy restart shell 2>/dev/null || true
+    sleep 1.2
+  fi
+fi
+
 PID=$(pgrep -x quickshell | head -n 1 || true)
 if [ -z "$PID" ]; then
   echo "⚠️ Quickshell is not running. Please start Omarchy shell first." >&2

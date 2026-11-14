@@ -63,11 +63,44 @@ fn test_ureq_post_offline() {
     assert!(res.is_err());
 }
 
-#[test]
-fn test_ui_widget_tree_and_simulation() {
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ui_widget_tree_and_simulation() {
     if gtk4::init().is_err() || adw::init().is_err() {
         return;
     }
+
+    use axum::routing::{get, post};
+    let app = axum::Router::new()
+        .route(
+            "/api/status",
+            get(|| async {
+                axum::Json(serde_json::json!({
+                    "enabled": true,
+                    "clients": [{"name": "Phone", "ip": "192.168.1.200", "listening": true}]
+                }))
+            }),
+        )
+        .route(
+            "/api/disable",
+            post(|| async { axum::Json(serde_json::json!({"enabled": false})) }),
+        )
+        .route(
+            "/api/enable",
+            post(|| async { axum::Json(serde_json::json!({"enabled": true})) }),
+        );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let srv_handle = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // Test fetch_status and ureq_post online
+    let status_online = fetch_status(port);
+    assert!(status_online.is_ok());
+    assert!(status_online.unwrap().enabled);
+    assert!(ureq_post(&format!("http://127.0.0.1:{port}/api/enable")).is_ok());
 
     // Verify CSS theme loading on the initialized GTK display (both dark and light)
     let provider = gtk4::CssProvider::new();
@@ -78,7 +111,7 @@ fn test_ui_widget_tree_and_simulation() {
     };
     apply_theme(&provider, &light_palette);
 
-    let window = build_ui_window(None, 50123);
+    let window = build_ui_window(None, port);
     let root = window.upcast_ref::<gtk4::Widget>();
 
     // 1. Find widgets by test-id (widget_name)
@@ -98,8 +131,9 @@ fn test_ui_widget_tree_and_simulation() {
     assert_eq!(open_btn.tooltip_text().as_deref(), Some("Open in browser"));
     assert_eq!(copy_btn.tooltip_text().as_deref(), Some("Copy stream URL"));
 
-    // 2. Simulate user click on copy button
+    // 2. Simulate user click on copy button and open button
     copy_btn.emit_clicked();
+    open_btn.emit_clicked();
 
     // 3. Simulate user toggling keep-switch
     let orig_keep = keep_sw.is_active();
@@ -129,6 +163,8 @@ fn test_ui_widget_tree_and_simulation() {
     // 5. Test window close
     window.close();
     while ctx.iteration(false) {}
+
+    srv_handle.abort();
 }
 
 #[test]
@@ -266,4 +302,19 @@ async fn test_run_desktop_workflow_when_gui_running() {
     let res = run_desktop_workflow(&cfg).await;
     assert!(res.is_ok());
     let _ = std::fs::remove_file(pid_file);
+}
+
+#[test]
+fn test_gui_helpers_and_error_paths() {
+    // Non-existent PID stop
+    let p = get_gui_pid_file();
+    let _ = std::fs::remove_file(&p);
+    assert!(!stop_gui_process());
+
+    // Save GUI config to invalid path
+    let invalid_path = std::path::Path::new("/proc/soundthis_nonexistent/config.json");
+    let cfg = GuiConfig {
+        keep_streaming: true,
+    };
+    assert!(save_gui_config_to(invalid_path, &cfg).is_err());
 }

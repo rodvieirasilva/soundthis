@@ -14,45 +14,55 @@ for cmd in grim hyprctl jq qs pgrep magick; do
   fi
 done
 
-# 2. Find Quickshell process
+# 2. Sync plugin files to user config and ensure Omarchy shell is updated
+PLUGIN_DEST="${HOME}/.config/omarchy/plugins/soundthis"
+if [ -d "$PLUGIN_DEST" ]; then
+  if ! cmp -s "${ROOT_DIR}/plugin/Panel.qml" "${PLUGIN_DEST}/Panel.qml"; then
+    cp -f "${ROOT_DIR}/plugin/Panel.qml" "${PLUGIN_DEST}/Panel.qml"
+    omarchy restart shell 2>/dev/null || true
+    sleep 1.2
+  fi
+fi
+
+# 3. Find Quickshell process
 PID=$(pgrep -x quickshell | head -n 1 || true)
 if [ -z "$PID" ]; then
   echo "⚠️ Quickshell is not running. Please start Omarchy shell first." >&2
   exit 1
 fi
 
-# 3. Ensure soundthis server is running for live preview
+# 4. Ensure soundthis server is running for live preview
 if ! curl -fsS --max-time 1 http://127.0.0.1:9697/api/status >/dev/null 2>&1; then
   echo "ℹ️ SoundThis service is not active, starting temporarily..."
   systemctl --user start soundthis 2>/dev/null || true
   sleep 1
 fi
 
-# 4. Calculate exact panel geometry based on primary display (monitor id 0)
+# 5. Calculate exact panel geometry based on primary display (monitor id 0)
 MONITOR=$(hyprctl monitors -j | jq -r '(.[] | select(.id == 0)) // .[0]')
 MON_X=$(echo "$MONITOR" | jq -r '.x')
 MON_Y=$(echo "$MONITOR" | jq -r '.y')
 MON_W=$(echo "$MONITOR" | jq -r '.width')
 
-# The Omarchy SoundThis panel card has width=360, height=380, anchored 30px from right margin
+# The Omarchy SoundThis panel card has width=360, height=326, anchored 30px from right margin
 CARD_X=$(( MON_X + MON_W - 390 ))
 CARD_Y=$(( MON_Y + 31 ))
 CARD_W=360
-CARD_H=380
+CARD_H=326
 GEOM="${CARD_X},${CARD_Y} ${CARD_W}x${CARD_H}"
 
-# 5. Open widget via quickshell IPC
+# 6. Open widget via quickshell IPC
 qs ipc --pid "$PID" call soundthis open
 sleep 0.6
 
-# 6. Capture widget card cleanly
+# 7. Capture widget card cleanly
 TEMP_CARD=$(mktemp /tmp/soundthis_card_XXXXXX.png)
 grim -g "$GEOM" "$TEMP_CARD"
 
-# 7. Close widget
+# 8. Close widget
 qs ipc --pid "$PID" call soundthis close
 
-# 8. Frame card centered on a 680x600 canvas (#1a1b26) matching web-client.png
+# 9. Frame card centered on a 680x600 canvas (#1a1b26) matching web-client.png
 mkdir -p "$(dirname "$OUTPUT")"
 magick -size 680x600 xc:"#1a1b26" "$TEMP_CARD" -gravity center -composite "$OUTPUT"
 rm -f "$TEMP_CARD"

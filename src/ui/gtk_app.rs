@@ -475,8 +475,9 @@ pub fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error
         format!("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
     stream.write_all(req.as_bytes())?;
 
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp)?;
+    let mut buf = [0u8; 8192];
+    let n = stream.read(&mut buf)?;
+    let resp = String::from_utf8_lossy(&buf[..n]);
 
     if let Some(body_idx) = resp.find("\r\n\r\n") {
         let body = &resp[body_idx + 4..];

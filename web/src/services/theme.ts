@@ -28,6 +28,19 @@ export function hexToRgba(hex: string, alpha: number): string {
   return hex;
 }
 
+export function getContrastColor(hexColor: string): string {
+  const cleanHex = hexColor.replace('#', '');
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+    const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+    const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+    const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    const lum = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    return lum > 0.4 ? '#1a1b26' : '#ffffff';
+  }
+  return '#ffffff';
+}
+
 export function applyTheme(palette: ThemePalette): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -49,6 +62,7 @@ export function applyTheme(palette: ThemePalette): void {
   }
   if (palette.accent) {
     root.style.setProperty('--accent', palette.accent);
+    root.style.setProperty('--accent-fg', getContrastColor(palette.accent));
     root.style.setProperty('--border', hexToRgba(palette.accent, 0.25));
   }
   if (palette.green) {
