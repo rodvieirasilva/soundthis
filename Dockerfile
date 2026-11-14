@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build Rust single binary (headless, no-default-features)
-FROM rust:1.85-slim-bookworm AS rust-builder
+FROM rust:1-slim-bookworm AS rust-builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 # Pre-copy web dist from stage 1 so include_str! succeeds
