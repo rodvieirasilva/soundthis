@@ -99,3 +99,8 @@ fn test_installer_helpers_and_systemd() {
     let start_err = SystemdManager::enable_and_start("soundthis-dummy-test.service");
     assert!(start_err.is_err());
 }
+
+#[test]
+fn test_installer_validate_templates() {
+    assert!(Installer::validate_templates().is_ok());
+}

@@ -229,43 +229,19 @@ pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::Applic
         );
     }
 
-    // Periodic telemetry update (listeners, streaming state, theme)
+    // Event-driven Omarchy theme monitoring via gio::FileMonitor (inotify)
+    let theme_monitors =
+        setup_theme_monitor(&css_provider, &current_palette, picture_weak, &stream_url);
+
+    // Periodic telemetry update (listeners, streaming state)
     let switch_weak = stream_switch.downgrade();
     let listeners_row_weak = listeners_row.downgrade();
     let listeners_group_weak = listeners_group.downgrade();
     let is_updating_timer = is_updating.clone();
-    let css_provider_timer = css_provider.clone();
-    let palette_timer = current_palette.clone();
-    let stream_url_clone = stream_url.clone();
     glib::timeout_add_local(std::time::Duration::from_millis(1500), move || {
         let Some(sw) = switch_weak.upgrade() else {
             return glib::ControlFlow::Break;
         };
-
-        // Live theme synchronization
-        let new_palette = crate::server::theme::ThemePalette::load_current();
-        if new_palette != *palette_timer.borrow() {
-            *palette_timer.borrow_mut() = new_palette.clone();
-            apply_theme(&css_provider_timer, &new_palette);
-
-            if let Some(ref p_weak) = picture_weak {
-                if let Some(pic) = p_weak.upgrade() {
-                    if let Ok(svg_data) = new_palette.generate_qr_svg(&stream_url_clone) {
-                        let bytes = glib::Bytes::from(svg_data.as_bytes());
-                        let stream = gio::MemoryInputStream::from_bytes(&bytes);
-                        if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_stream_at_scale(
-                            &stream,
-                            200,
-                            200,
-                            true,
-                            None::<&gio::Cancellable>,
-                        ) {
-                            pic.set_pixbuf(Some(&pixbuf));
-                        }
-                    }
-                }
-            }
-        }
 
         if let Ok(status) = fetch_status(port) {
             is_updating_timer.store(true, Ordering::SeqCst);
@@ -302,6 +278,7 @@ pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::Applic
 
     // Handle window close
     window.connect_close_request(move |_| {
+        let _ = &theme_monitors;
         let keep = crate::ui::read_gui_config().keep_streaming;
         if !keep {
             let url = format!("http://127.0.0.1:{port}/api/disable");
@@ -311,6 +288,81 @@ pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::Applic
     });
 
     window
+}
+
+pub fn setup_theme_monitor(
+    css_provider: &gtk4::CssProvider,
+    current_palette: &Rc<std::cell::RefCell<crate::server::theme::ThemePalette>>,
+    picture_weak: Option<gtk4::glib::WeakRef<gtk4::Picture>>,
+    stream_url: &str,
+) -> Vec<gio::FileMonitor> {
+    let mut monitors = Vec::new();
+    let home = std::env::var("HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+
+    let theme_dir = home.join(".local/state/omarchy/current/theme");
+    let current_dir = home.join(".local/state/omarchy/current");
+
+    let css_provider = css_provider.clone();
+    let current_palette = current_palette.clone();
+    let stream_url = stream_url.to_string();
+
+    let reload_theme = Rc::new(move || {
+        let new_palette = crate::server::theme::ThemePalette::load_current();
+        if new_palette != *current_palette.borrow() {
+            *current_palette.borrow_mut() = new_palette.clone();
+            apply_theme(&css_provider, &new_palette);
+
+            if let Some(ref p_weak) = picture_weak {
+                if let Some(pic) = p_weak.upgrade() {
+                    if let Ok(svg_data) = new_palette.generate_qr_svg(&stream_url) {
+                        let bytes = glib::Bytes::from(svg_data.as_bytes());
+                        let stream = gio::MemoryInputStream::from_bytes(&bytes);
+                        if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_stream_at_scale(
+                            &stream,
+                            200,
+                            200,
+                            true,
+                            None::<&gio::Cancellable>,
+                        ) {
+                            pic.set_pixbuf(Some(&pixbuf));
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    for path in [&current_dir, &theme_dir] {
+        if path.exists() {
+            let file = gio::File::for_path(path);
+            if let Ok(monitor) =
+                file.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+            {
+                let cb = reload_theme.clone();
+                let debounce_id = Rc::new(std::cell::RefCell::new(None::<glib::SourceId>));
+                let debounce_id_clone = debounce_id.clone();
+
+                monitor.connect_changed(move |_, _, _, _| {
+                    if let Some(id) = debounce_id_clone.borrow_mut().take() {
+                        id.remove();
+                    }
+                    let cb_inner = cb.clone();
+                    let id = glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(80),
+                        move || {
+                            cb_inner();
+                        },
+                    );
+                    *debounce_id_clone.borrow_mut() = Some(id);
+                });
+                monitors.push(monitor);
+            }
+        }
+    }
+
+    monitors
 }
 
 pub fn find_widget_by_name<W: glib::object::IsA<gtk4::Widget>>(
@@ -410,7 +462,7 @@ pub fn parse_status_json(val: &serde_json::Value) -> SimpleStatus {
     SimpleStatus { enabled, clients }
 }
 
-fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
+pub fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(400))
         .build()?;
@@ -421,117 +473,10 @@ fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
     Ok(parse_status_json(&res))
 }
 
-fn ureq_post(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn ureq_post(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(500))
         .build()?;
     client.post(url).send()?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_build_theme_css() {
-        let palette = crate::server::theme::ThemePalette::default();
-        let css = build_theme_css(&palette);
-        assert!(css.contains("@define-color window_bg_color"));
-        assert!(css.contains(&palette.background));
-        assert!(css.contains(&palette.bright_foreground));
-    }
-
-    #[test]
-    fn test_parse_status_json() {
-        let json = serde_json::json!({
-            "enabled": true,
-            "clients": [
-                {
-                    "name": "My Phone",
-                    "ip": "192.168.1.100"
-                }
-            ]
-        });
-
-        let status = parse_status_json(&json);
-        assert!(status.enabled);
-        assert_eq!(status.clients.len(), 1);
-        assert_eq!(status.clients[0].name, "My Phone");
-        assert_eq!(status.clients[0].ip, "192.168.1.100");
-    }
-
-    #[test]
-    fn test_parse_status_json_empty() {
-        let json = serde_json::json!({});
-        let status = parse_status_json(&json);
-        assert!(!status.enabled);
-        assert!(status.clients.is_empty());
-    }
-
-    #[test]
-    fn test_ui_widget_tree_and_simulation() {
-        if gtk4::init().is_err() || adw::init().is_err() {
-            return;
-        }
-
-        // Verify CSS theme loading on the initialized GTK display
-        let provider = gtk4::CssProvider::new();
-        apply_theme(&provider, &crate::server::theme::ThemePalette::default());
-
-        let window = build_ui_window(None, 50123);
-        let root = window.upcast_ref::<gtk4::Widget>();
-
-        // 1. Find widgets by test-id (widget_name)
-        let stream_sw: gtk4::Switch =
-            find_widget_by_name(root, "stream-switch").expect("stream-switch widget must exist");
-        let keep_sw: gtk4::Switch =
-            find_widget_by_name(root, "keep-switch").expect("keep-switch widget must exist");
-        let copy_btn: gtk4::Button =
-            find_widget_by_name(root, "copy-btn").expect("copy-btn widget must exist");
-        let open_btn: gtk4::Button =
-            find_widget_by_name(root, "open-btn").expect("open-btn widget must exist");
-        let listeners_row: adw::ActionRow =
-            find_widget_by_name(root, "listeners-row").expect("listeners-row widget must exist");
-
-        assert!(stream_sw.is_active());
-        assert_eq!(listeners_row.title(), "Active Listeners");
-        assert_eq!(open_btn.tooltip_text().as_deref(), Some("Open in browser"));
-        assert_eq!(copy_btn.tooltip_text().as_deref(), Some("Copy stream URL"));
-
-        // 2. Simulate user click on copy button
-        copy_btn.emit_clicked();
-
-        // 3. Simulate user toggling keep-switch
-        let orig_keep = keep_sw.is_active();
-        keep_sw.set_active(!orig_keep);
-
-        // Process pending GTK/GLib main context events
-        let ctx = glib::MainContext::default();
-        while ctx.iteration(false) {}
-
-        assert_eq!(keep_sw.is_active(), !orig_keep);
-
-        // Verify config updated
-        let cfg = crate::ui::read_gui_config();
-        assert_eq!(cfg.keep_streaming, !orig_keep);
-
-        // Restore original setting
-        keep_sw.set_active(orig_keep);
-        while ctx.iteration(false) {}
-        let cfg_restored = crate::ui::read_gui_config();
-        assert_eq!(cfg_restored.keep_streaming, orig_keep);
-    }
-
-    #[test]
-    fn test_fetch_status_offline() {
-        let res = fetch_status(59998);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_ureq_post_offline() {
-        let res = ureq_post("http://127.0.0.1:59998/api/disable");
-        assert!(res.is_err());
-    }
 }
