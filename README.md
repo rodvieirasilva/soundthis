@@ -27,7 +27,7 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 </p>
 
 <p align="center">
-  <em>Live synchronized theme switching across all 3 interfaces: Web Client, Native GTK4 Desktop App, and Omarchy Bar Widget (cycling Tokyo Night, Catppuccin, and Gruvbox).</em>
+  <em>Live synchronized theme switching across all 3 interfaces: Web Client, Native GTK4 Desktop App, and Omarchy Bar Widget (cycling Tokyo Night, Catppuccin Latte, Gruvbox, and White).</em>
 </p>
 
 <details>

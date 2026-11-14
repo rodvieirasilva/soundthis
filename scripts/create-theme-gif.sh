@@ -86,8 +86,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Dismiss any previous crash/desktop notifications to keep window clean
+# Silence crash balloons and dismiss notifications to keep screenshots clean
+omarchy crash mute soundthis on 2>/dev/null || true
 omarchy notification dismiss "crashed" 2>/dev/null || true
+omarchy notification dismiss "soundthis" 2>/dev/null || true
 
 # 6. Capture theme frame function
 capture_theme_frame() {
@@ -103,20 +105,9 @@ capture_theme_frame() {
   local accent=$(grep -E '^\s*accent\s*=' "$toml_path" | head -n1 | cut -d'"' -f2 || echo "#7aa2f7")
   local dark_bg=$(grep -E '^\s*dark_background\s*=' "$toml_path" | head -n1 | cut -d'"' -f2 || echo "#16161e")
 
-  # 6A. Capture Web Client via Playwright
+  # 6A. Capture Web Client using external Playwright runner
   echo "   [1/3] Capturing Web Client..."
-  cd "$ROOT_DIR/web"
-  node -e '
-  import("@playwright/test").then(async ({ chromium }) => {
-    const browser = await chromium.launch({ headless: true, executablePath: "/usr/bin/chromium", args: ["--no-sandbox", "--disable-gpu"] });
-    const page = await browser.newPage();
-    await page.setViewportSize({ width: 400, height: 600 });
-    await page.goto("http://127.0.0.1:9697/");
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: "'"$TMP_DIR"'/web_panel.png" });
-    await browser.close();
-  });
-  '
+  node "${ROOT_DIR}/web/scripts/capture-panel.mjs" 9697 "${TMP_DIR}/web_panel.png" 400 600
 
   # 6B. Capture Omarchy Bar Widget
   echo "   [2/3] Capturing Omarchy Bar Widget..."
@@ -172,10 +163,11 @@ capture_theme_frame() {
   echo "   ✅ Frame ${index} generated (${theme})"
 }
 
-# 7. Cycle through distinct Omarchy themes
+# 7. Cycle through distinct Omarchy themes (Dark, Light, Retro, Monochrome)
 capture_theme_frame "Tokyo Night" "01"
-capture_theme_frame "Catppuccin" "02"
+capture_theme_frame "Catppuccin Latte" "02"
 capture_theme_frame "Gruvbox" "03"
+capture_theme_frame "White" "04"
 
 # 8. Encode optimized animated GIF
 echo "🎞️ Assembling animated GIF with ffmpeg..."
