@@ -123,16 +123,6 @@ async function main() {
     const mobilePath = path.join(rootDir, "docs/screenshots/web-mobile.png");
     await page.screenshot({ path: mobilePath });
     console.log(`Saved mobile screenshot: ${mobilePath}`);
-
-    // Omarchy desktop panel screenshot (via capture-widget.sh)
-    try {
-      const widgetScript = path.join(rootDir, "scripts/capture-widget.sh");
-      if (fs.existsSync(widgetScript)) {
-        execSync(`bash "${widgetScript}"`, { stdio: "inherit" });
-      }
-    } catch {
-      // Ignore if running in headless CI without graphical quickshell session
-    }
   } finally {
     await browser.close();
     audioPlayer.kill();

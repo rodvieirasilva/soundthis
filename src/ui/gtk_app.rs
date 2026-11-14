@@ -238,9 +238,7 @@ fn build_ui(app: &adw::Application, port: u16) {
         let keep = crate::ui::read_gui_config().keep_streaming;
         if !keep {
             let url = format!("http://127.0.0.1:{port}/api/disable");
-            std::thread::spawn(move || {
-                let _ = ureq_post(&url);
-            });
+            let _ = ureq_post(&url);
         }
         glib::Propagation::Proceed
     });

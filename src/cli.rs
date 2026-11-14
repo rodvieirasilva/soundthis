@@ -320,7 +320,10 @@ pub async fn cmd_open(config: &ServerConfig) -> Result<(), Box<dyn std::error::E
     let scheme = config.protocol.scheme();
     let url = format!("{scheme}://{}:{}", lan_ip, config.port);
     println!("Opening {}", url);
-    let _ = Command::new("xdg-open").arg(url).status();
+    // Never invoke external browser during unit/integration tests or CI runs
+    if std::env::var("SOUNDTHIS_TEST").is_err() && std::env::var("CI").is_err() && !cfg!(test) {
+        let _ = Command::new("xdg-open").arg(url).status();
+    }
     Ok(())
 }
 
@@ -384,9 +387,23 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
     }
 
     let keep = crate::ui::read_gui_config().keep_streaming;
-    if let Some(task) = server_task {
-        if !keep {
+    if !keep {
+        if let Some(task) = server_task {
             println!("SoundThis UI closed. Stopped server.");
+            let _ = shutdown_tx.send(());
+            task.abort();
+        }
+        let _ = cmd_stop(config).await;
+    } else if let Some(task) = server_task {
+        // If systemd user service is available, transfer streaming to systemd so it survives terminal closing
+        let systemd_started = Command::new("systemctl")
+            .args(["--user", "start", "soundthis.service"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if systemd_started {
+            println!("SoundThis UI closed. Transferred streaming to background systemd service (Omarchy bar).");
             let _ = shutdown_tx.send(());
             task.abort();
         } else {
@@ -397,6 +414,9 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
             let _ = shutdown_tx.send(());
             task.abort();
         }
+    } else {
+        let _ = cmd_set_enabled(config, true).await;
+        println!("SoundThis UI closed. Background streaming active in Omarchy bar.");
     }
 
     Ok(())

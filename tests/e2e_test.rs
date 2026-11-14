@@ -385,6 +385,7 @@ async fn test_e2e_cli_remote_control() {
     assert!(soundthis::cli::cmd_set_enabled(&config, true).await.is_ok());
     assert!(state.is_enabled());
 
+    std::env::set_var("SOUNDTHIS_TEST", "1");
     assert!(soundthis::cli::cmd_open(&config).await.is_ok());
 
     // Write a temporary config file pointing to this server's port

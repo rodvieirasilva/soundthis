@@ -41,13 +41,18 @@ depends = ["build"]
 dir = "web"
 run = "node scripts/capture-screenshots.mjs"
 
+[tasks."screenshots:app"]
+description = "Capture live native GTK4/Adwaita desktop application window screenshot"
+depends = ["build:rust"]
+run = "./scripts/capture-app.sh"
+
 [tasks."screenshots:widget"]
 description = "Capture live Omarchy desktop bar widget and popout panel screenshot"
 run = "./scripts/capture-widget.sh"
 
 [tasks.screenshots]
-description = "Generate complete set of documentation screenshots (web & desktop widget)"
-depends = ["screenshots:web", "screenshots:widget"]
+description = "Generate complete set of documentation screenshots (web, desktop app, and widget)"
+depends = ["screenshots:web", "screenshots:app", "screenshots:widget"]
 
 [tasks."test:server"]
 description = "Run Rust unit and integration tests"

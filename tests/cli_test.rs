@@ -72,6 +72,7 @@ async fn test_cli_helpers_and_detection() {
     assert!(!cli::check_server_running(59124).await);
 
     // Test cmd_open
+    std::env::set_var("SOUNDTHIS_TEST", "1");
     let config = ServerConfig::default();
     assert!(cli::cmd_open(&config).await.is_ok());
 }
