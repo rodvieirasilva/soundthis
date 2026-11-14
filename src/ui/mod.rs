@@ -10,15 +10,24 @@ pub struct GuiConfig {
 }
 
 pub fn get_gui_config_path() -> PathBuf {
-    crate::config::ServerConfig::config_dir().join("gui.json")
+    crate::config::ServerConfig::default_config_path()
 }
 
 pub fn read_gui_config() -> GuiConfig {
-    read_gui_config_from(&get_gui_config_path())
+    GuiConfig {
+        keep_streaming: crate::config::ServerConfig::read_keep_streaming(),
+    }
 }
 
 pub fn read_gui_config_from(path: &std::path::Path) -> GuiConfig {
     if let Ok(content) = std::fs::read_to_string(path) {
+        if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+            if let Ok(cfg) = toml::from_str::<crate::config::ServerConfig>(&content) {
+                return GuiConfig {
+                    keep_streaming: cfg.desktop.keep_streaming,
+                };
+            }
+        }
         serde_json::from_str(&content).unwrap_or_default()
     } else {
         GuiConfig::default()
@@ -26,15 +35,22 @@ pub fn read_gui_config_from(path: &std::path::Path) -> GuiConfig {
 }
 
 pub fn save_gui_config(cfg: &GuiConfig) -> Result<(), std::io::Error> {
-    save_gui_config_to(&get_gui_config_path(), cfg)
+    crate::config::ServerConfig::set_keep_streaming(cfg.keep_streaming)
+        .map_err(std::io::Error::other)
 }
 
 pub fn save_gui_config_to(path: &std::path::Path, cfg: &GuiConfig) -> Result<(), std::io::Error> {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let json = serde_json::to_string_pretty(cfg).map_err(std::io::Error::other)?;
-    std::fs::write(path, json)
+    if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+        let existing = std::fs::read_to_string(path).unwrap_or_default();
+        let updated = crate::config::update_keep_streaming_in_toml(&existing, cfg.keep_streaming);
+        std::fs::write(path, updated)
+    } else {
+        let json = serde_json::to_string_pretty(cfg).map_err(std::io::Error::other)?;
+        std::fs::write(path, json)
+    }
 }
 
 pub fn copy_to_clipboard(text: &str) -> bool {
@@ -207,7 +223,7 @@ mod tests {
     #[test]
     fn test_paths_and_default_reading() {
         let p = get_gui_config_path();
-        assert!(p.ends_with("gui.json"));
+        assert!(p.ends_with("config.toml"));
         let initial = read_gui_config();
         let _ = save_gui_config(&initial);
         let reloaded = read_gui_config();

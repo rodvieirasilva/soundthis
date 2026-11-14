@@ -29,3 +29,8 @@ sample_rate = 48000
 channels = 2
 chunk_size = 3840
 latency_ms = 20
+
+[desktop]
+# Continue audio streaming in background when the desktop application window closes (default: true)
+keep_streaming = true
+

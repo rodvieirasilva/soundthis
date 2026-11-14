@@ -164,6 +164,8 @@ info "4. Testing install scriptlet hooks directly with bash..."
 bash -c "
   set -eu
   source '$REPO_ROOT/pkg/soundthis.install'
+  # Stub _get_target_users in sandbox so test does not modify host desktop session
+  _get_target_users() { echo 99999; }
   post_install
   post_upgrade
   pre_remove

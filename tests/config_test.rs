@@ -13,6 +13,7 @@ fn test_config_defaults_and_parsing() {
     assert_eq!(default_cfg.cors.allow_origins, vec!["*"]);
     assert_eq!(default_cfg.audio.sample_rate, 48000);
     assert_eq!(default_cfg.audio.channels, 2);
+    assert!(default_cfg.desktop.keep_streaming);
 
     // Custom TOML parsing
     let custom_toml = r#"
@@ -51,6 +52,11 @@ fn test_config_defaults_and_parsing() {
     let template = ServerConfig::default_toml_template();
     let from_template: Result<ServerConfig, _> = toml::from_str(template);
     assert!(from_template.is_ok());
+
+    let updated = soundthis::config::update_keep_streaming_in_toml(template, false);
+    assert!(updated.contains("keep_streaming = false"));
+    let updated_back = soundthis::config::update_keep_streaming_in_toml(&updated, true);
+    assert!(updated_back.contains("keep_streaming = true"));
 }
 
 #[test]

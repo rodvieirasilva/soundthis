@@ -104,6 +104,20 @@ impl Default for AudioConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesktopConfig {
+    #[serde(default = "default_true")]
+    pub keep_streaming: bool,
+}
+
+impl Default for DesktopConfig {
+    fn default() -> Self {
+        Self {
+            keep_streaming: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     #[serde(default = "default_port")]
     pub port: u16,
@@ -122,6 +136,9 @@ pub struct ServerConfig {
 
     #[serde(default)]
     pub audio: AudioConfig,
+
+    #[serde(default)]
+    pub desktop: DesktopConfig,
 }
 
 impl Default for ServerConfig {
@@ -133,6 +150,7 @@ impl Default for ServerConfig {
             tls: TlsConfig::default(),
             cors: CorsConfig::default(),
             audio: AudioConfig::default(),
+            desktop: DesktopConfig::default(),
         }
     }
 }
@@ -240,6 +258,7 @@ impl ServerConfig {
         if !CONFIG_TEMPLATE.contains("[tls]")
             || !CONFIG_TEMPLATE.contains("[cors]")
             || !CONFIG_TEMPLATE.contains("[audio]")
+            || !CONFIG_TEMPLATE.contains("[desktop]")
         {
             return Err(SoundThisError::Installer(
                 "Config template missing standard configuration sections".into(),
@@ -251,6 +270,27 @@ impl ServerConfig {
 
     pub fn default_toml_template() -> &'static str {
         CONFIG_TEMPLATE
+    }
+
+    pub fn read_keep_streaming() -> bool {
+        Self::load_or_create(None)
+            .map(|c| c.desktop.keep_streaming)
+            .unwrap_or(true)
+    }
+
+    pub fn set_keep_streaming(keep: bool) -> Result<(), SoundThisError> {
+        let path = Self::default_config_path();
+        let existing = if path.exists() {
+            fs::read_to_string(&path).unwrap_or_default()
+        } else {
+            Self::default_toml_template().to_string()
+        };
+
+        let updated = update_keep_streaming_in_toml(&existing, keep);
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::write(&path, updated).map_err(SoundThisError::Io)
     }
 
     pub fn resolve_tls_pem(&self, lan_ip: &str) -> Result<(Vec<u8>, Vec<u8>), SoundThisError> {
@@ -323,4 +363,33 @@ impl ServerConfig {
 
 fn dirs_home() -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
+}
+
+pub fn update_keep_streaming_in_toml(content: &str, keep: bool) -> String {
+    let mut in_desktop_section = false;
+    let mut replaced = false;
+    let mut lines = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            in_desktop_section = trimmed == "[desktop]";
+        }
+        if in_desktop_section && trimmed.starts_with("keep_streaming") {
+            lines.push(format!("keep_streaming = {keep}"));
+            replaced = true;
+        } else {
+            lines.push(line.to_string());
+        }
+    }
+
+    if !replaced {
+        if !content.contains("[desktop]") {
+            lines.push(String::new());
+            lines.push("[desktop]".to_string());
+        }
+        lines.push(format!("keep_streaming = {keep}"));
+    }
+
+    lines.join("\n") + "\n"
 }
