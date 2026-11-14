@@ -2,6 +2,7 @@ import { AudioStreamPlayer } from "../audio/player";
 import { CanvasVisualizer } from "../audio/visualizer";
 import { AudioWebSocketClient } from "../services/ws";
 import { ClientConfigStore } from "../services/storage";
+import { fetchAndApplyTheme } from "../services/theme";
 import type { ConnectionStatus, VisualizerMode } from "../audio/types";
 
 export class SoundThisApp {
@@ -39,6 +40,7 @@ export class SoundThisApp {
   }
 
   public init(): void {
+    void fetchAndApplyTheme();
     this.bindDOMElements();
     this.bindEvents();
 

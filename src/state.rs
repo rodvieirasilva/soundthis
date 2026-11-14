@@ -93,7 +93,7 @@ impl AppState {
         map.values().cloned().collect()
     }
 
-    pub async fn to_status_response(&self) -> StatusResponse {
+    pub fn get_url(&self) -> String {
         let scheme = self.protocol.scheme();
         let detected = crate::network::ip::get_lan_ip();
         let lan_ip = if self.lan_ip == "127.0.0.1" && detected != "127.0.0.1" {
@@ -101,7 +101,17 @@ impl AppState {
         } else {
             self.lan_ip.clone()
         };
-        let url = format!("{scheme}://{}:{}", lan_ip, self.port);
+        format!("{scheme}://{lan_ip}:{}", self.port)
+    }
+
+    pub async fn to_status_response(&self) -> StatusResponse {
+        let scheme = self.protocol.scheme();
+        let url = self.get_url();
+        let lan_ip = if self.lan_ip == "127.0.0.1" {
+            crate::network::ip::get_lan_ip()
+        } else {
+            self.lan_ip.clone()
+        };
         StatusResponse {
             online: true,
             enabled: self.is_enabled(),

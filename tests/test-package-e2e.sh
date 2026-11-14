@@ -73,7 +73,6 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Verifying installed files..."
   [[ -x /usr/bin/soundthis ]] || fail "/usr/bin/soundthis is missing or not executable"
   [[ -f /usr/lib/systemd/user/soundthis.service ]] || fail "/usr/lib/systemd/user/soundthis.service is missing"
-  [[ -f /usr/lib/systemd/user-preset/90-soundthis.preset ]] || fail "Systemd user preset is missing"
   [[ -f /usr/share/applications/soundthis.desktop ]] || fail "Desktop file is missing"
   [[ -f /usr/share/icons/hicolor/scalable/apps/soundthis.svg ]] || fail "Scalable SVG icon is missing"
   [[ -f /usr/share/omarchy/shell/plugins/soundthis/manifest.json ]] || fail "Plugin manifest.json is missing"
@@ -85,10 +84,6 @@ if [[ "${1:-}" == "--container" ]]; then
   /usr/bin/soundthis --version
   /usr/bin/soundthis --help >/dev/null
   success "soundthis binary runs and reports version/help"
-
-  # Verify systemd preset content
-  grep -q "enable soundthis.service" /usr/lib/systemd/user-preset/90-soundthis.preset || fail "Preset does not enable soundthis.service"
-  success "Systemd user preset correctly enables soundthis.service"
 
   # 2. Test Package Uninstallation
   info "Uninstalling package with pacman -Rns..."
@@ -106,7 +101,6 @@ if [[ "${1:-}" == "--container" ]]; then
   info "Verifying package removal..."
   [[ ! -f /usr/bin/soundthis ]] || fail "/usr/bin/soundthis was not removed"
   [[ ! -f /usr/lib/systemd/user/soundthis.service ]] || fail "Systemd service was not removed"
-  [[ ! -f /usr/lib/systemd/user-preset/90-soundthis.preset ]] || fail "Preset was not removed"
   [[ ! -f /usr/share/applications/soundthis.desktop ]] || fail "Desktop file was not removed"
   [[ ! -f /usr/share/icons/hicolor/scalable/apps/soundthis.svg ]] || fail "SVG icon was not removed"
   [[ ! -d /usr/share/omarchy/shell/plugins/soundthis ]] || fail "Plugin directory was not removed"
@@ -127,14 +121,14 @@ info "1. Validating package source files..."
 [[ -f "$REPO_ROOT/pkg/PKGBUILD" ]] || fail "pkg/PKGBUILD missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.install" ]] || fail "pkg/soundthis.install missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.desktop" ]] || fail "pkg/soundthis.desktop missing"
-[[ -f "$REPO_ROOT/pkg/90-soundthis.preset" ]] || fail "pkg/90-soundthis.preset missing"
 [[ -f "$REPO_ROOT/pkg/soundthis.svg" ]] || fail "pkg/soundthis.svg missing"
+[[ -f "$REPO_ROOT/ui/Main.qml" ]] || fail "ui/Main.qml missing"
 success "Package source files present"
 
-info "2. Checking desktop entry and systemd preset syntax..."
+info "2. Checking desktop entry syntax..."
 grep -q "\[Desktop Entry\]" "$REPO_ROOT/pkg/soundthis.desktop" || fail "Invalid desktop file"
-grep -q "enable soundthis.service" "$REPO_ROOT/pkg/90-soundthis.preset" || fail "Invalid preset file"
-success "Desktop entry and systemd preset validated"
+grep -q "Exec=/usr/bin/soundthis" "$REPO_ROOT/pkg/soundthis.desktop" || fail "Invalid Exec line in desktop file"
+success "Desktop entry validated"
 
 if command -v omarchy >/dev/null 2>&1; then
   info "3. Validating omarchy CLI integration on host..."
@@ -164,7 +158,6 @@ if command -v makepkg >/dev/null 2>&1; then
     ARCHIVE_LIST=$(tar -tf "$PKG_ARCHIVE")
     echo "$ARCHIVE_LIST" | grep -q "usr/bin/soundthis" || fail "Binary missing from built package"
     echo "$ARCHIVE_LIST" | grep -q "usr/lib/systemd/user/soundthis.service" || fail "Service missing from built package"
-    echo "$ARCHIVE_LIST" | grep -q "usr/lib/systemd/user-preset/90-soundthis.preset" || fail "Preset missing from built package"
     echo "$ARCHIVE_LIST" | grep -q "usr/share/applications/soundthis.desktop" || fail "Desktop entry missing from built package"
     echo "$ARCHIVE_LIST" | grep -q "usr/share/icons/hicolor/scalable/apps/soundthis.svg" || fail "Icon missing from built package"
     echo "$ARCHIVE_LIST" | grep -q "usr/share/omarchy/shell/plugins/soundthis/manifest.json" || fail "Manifest missing from built package"

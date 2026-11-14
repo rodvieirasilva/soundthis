@@ -6,3 +6,4 @@ pub mod installer;
 pub mod network;
 pub mod server;
 pub mod state;
+pub mod ui;

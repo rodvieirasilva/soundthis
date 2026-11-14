@@ -62,15 +62,16 @@ Other cross-platform tools like **AudioRelay** require installing dedicated nati
 
 ## Highlights
 
+- **Single Self-Contained Binary**: One unified executable (`/usr/bin/soundthis`) containing the async Rust audio streaming server, the embedded Vite web client, and the embedded Qt Quick desktop application.
+- **Embedded Qt Quick Desktop UI**: Built natively for Omarchy using Qt Quick (`ui/Main.qml`). Dynamically follows Omarchy OS theme switches (`colors.toml`), displays real-time server telemetry, live QR code for mobile scanning, listener list, and instant stream URL copy/open actions.
+- **Dynamic Theme Syncing**: Live theme palette support from `~/.local/state/omarchy/current/theme/colors.toml` for both the desktop application and the web player.
+- **On-Demand Lifecycle**: Starts streaming instantly when opened from the app launcher. When the window closes, it stops streaming cleanly, or optionally continues streaming in the background with the Omarchy bar widget if "Keep streaming in Omarchy bar" is checked.
 - **Native Rust Server**: Axum + Tokio async WebSocket broadcast server with minimal memory footprint (~1.6 MB RAM) and sub-3ms startup.
-- **Embedded Vite Web Client**: Single-file bundled frontend (`TypeScript` + `Vite` + `AudioContext`), compiled and embedded directly inside the 2.9 MB executable. Zero external runtime assets needed.
+- **Embedded Vite Web Client**: Single-file bundled frontend (`TypeScript` + `Vite` + `AudioContext`), compiled and embedded directly inside the binary via `include_str!`. Zero external runtime assets needed.
 - **TOML Configuration Support**: Fully customizable via `~/.config/soundthis/config.toml` or custom path with `--config`.
 - **HTTP & HTTPS with Auto-TLS**: Native TLS support via `rustls`, including auto-generating self-signed X.509 certificates for localhost and your LAN IP.
-- **Configurable CORS**: Customizable allowed origins, methods, and headers for web and WebSocket endpoints.
 - **Omarchy Shell Integration**: Native bar widget (`KeyboardPanel` + `BarIconButton`) with live broadcast status, client count, and an interactive popout panel.
-- **Enabled / Disabled Control**: Toggle audio sharing on and off directly from the Omarchy bar (right-click to toggle, or use the switch in the panel).
 - **Ultra-Low Latency (~30–50ms)**: Streams 48kHz 16-bit stereo PCM with scheduled jitter buffers.
-- **Device Identification**: Clients can customize their device name in the browser, stored in `localStorage` and visible on the host desktop.
 - **Comprehensive Test Suite & Quality**: Strict >= 80% test coverage enforced across both Rust (`cargo-llvm-cov`) and TypeScript (`Vitest`), with zero clippy/ESLint warnings.
 
 ---
@@ -86,13 +87,14 @@ omarchy pkg add soundthis
 ```
 
 > [!NOTE]
-> Installing the package automatically starts and enables the systemd user service (`soundthis.service`), activates the widget directly on your Omarchy bar, and registers the app in your application launcher. Zero configuration or command-line setup required!
+> Installing the package registers the **SoundThis** desktop application in your application launcher (`soundthis.desktop`) and deploys the Omarchy top bar widget (`plugin/Panel.qml`).
+> 
+> Simply launch **SoundThis** from your application menu or run `soundthis` to open the desktop app and start streaming on demand.
 > 
 > To remove completely:
 > ```bash
 > omarchy pkg drop soundthis
 > ```
-> Uninstallation automatically stops and disables the daemon and removes the widget from your bar.
 
 ---
 
@@ -220,12 +222,17 @@ http://<YOUR_LAN_IP>:9697
 </p>
 
 
-### Omarchy Bar Widget
-- **Left Click**: Opens the SoundThis control panel showing LAN link, connected listeners, and controls.
-- **Right / Middle Click**: Immediately toggles audio sharing between Enabled and Disabled.
+### Desktop App & Omarchy Integration
+- **App Launcher / CLI**: Launch `soundthis` with no arguments in your Omarchy desktop session to open the native Qt Quick desktop application.
+- **Dynamic Theming**: The desktop UI and web client dynamically match your active Omarchy theme colors live from `colors.toml`.
+- **Omarchy Bar Widget**:
+  - **Left Click**: Opens the SoundThis control panel showing LAN link, connected listeners, and controls.
+  - **Right / Middle Click**: Immediately toggles audio sharing between Enabled and Disabled.
 
 ### CLI Commands
 ```bash
+soundthis             # Open desktop application (or starts server in headless)
+soundthis app         # Explicitly launch desktop application
 soundthis status      # View streaming status and connected clients
 soundthis toggle      # Toggle audio sharing on/off
 soundthis enable      # Enable audio sharing
@@ -233,7 +240,8 @@ soundthis disable     # Disable audio sharing
 soundthis open        # Open client page in default browser
 soundthis serve       # Run streaming server in foreground
 soundthis serve --https # Run server with HTTPS enabled
-soundthis install     # Configure systemd daemon and Omarchy bar
+soundthis stop        # Stop active streaming session
+soundthis install     # Configure Omarchy desktop entry and bar widget
 soundthis uninstall   # Completely remove plugin and service
 ```
 

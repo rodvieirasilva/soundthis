@@ -14,10 +14,10 @@ fn test_packaging_metadata_and_templates_validity() {
     assert!(pkgbuild.contains("pkgname=soundthis"));
     assert!(pkgbuild.contains("arch=('x86_64' 'aarch64')"));
     assert!(pkgbuild.contains("install=soundthis.install"));
-    assert!(pkgbuild.contains("depends=('gcc-libs' 'glibc' 'libpulse')"));
+    assert!(pkgbuild.contains("libpulse"));
+    assert!(pkgbuild.contains("qt6-base"));
     assert!(pkgbuild.contains("/usr/bin/soundthis"));
     assert!(pkgbuild.contains("/usr/lib/systemd/user/soundthis.service"));
-    assert!(pkgbuild.contains("/usr/lib/systemd/user-preset/90-soundthis.preset"));
     assert!(pkgbuild.contains("/usr/share/applications/soundthis.desktop"));
     assert!(pkgbuild.contains("/usr/share/icons/hicolor/scalable/apps/soundthis.svg"));
     assert!(pkgbuild.contains("/usr/share/omarchy/shell/plugins/soundthis/"));
@@ -29,16 +29,10 @@ fn test_packaging_metadata_and_templates_validity() {
     assert!(desktop.contains("[Desktop Entry]"));
     assert!(desktop.contains("Type=Application"));
     assert!(desktop.contains("Name=SoundThis"));
-    assert!(desktop.contains("Exec=/usr/bin/soundthis open"));
+    assert!(desktop.contains("Exec=/usr/bin/soundthis"));
     assert!(desktop.contains("Icon=soundthis"));
 
-    // 3. Systemd preset checks
-    let preset_path = pkg_dir.join("90-soundthis.preset");
-    assert!(preset_path.exists());
-    let preset = fs::read_to_string(&preset_path).unwrap();
-    assert!(preset.contains("enable soundthis.service"));
-
-    // 4. SVG icon checks
+    // 3. SVG icon checks
     let svg_path = pkg_dir.join("soundthis.svg");
     assert!(svg_path.exists());
     let svg = fs::read_to_string(&svg_path).unwrap();
@@ -90,8 +84,8 @@ fn test_package_staging_and_filesystem_layout() {
         pkg_dir.join("PKGBUILD"),
         pkg_dir.join("soundthis.install"),
         pkg_dir.join("soundthis.desktop"),
-        pkg_dir.join("90-soundthis.preset"),
         pkg_dir.join("soundthis.svg"),
+        manifest_dir.join("ui/Main.qml"),
         manifest_dir.join("plugin/manifest.json"),
         manifest_dir.join("plugin/Panel.qml"),
         manifest_dir.join("systemd/soundthis.service.template"),

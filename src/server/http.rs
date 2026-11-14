@@ -139,3 +139,66 @@ pub async fn handle_api_disable(
         "enabled": false
     }))
 }
+
+pub async fn handle_api_theme() -> impl IntoResponse {
+    let palette = crate::server::theme::ThemePalette::load_current();
+    Json(palette)
+}
+
+pub async fn handle_api_qr_svg(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> impl IntoResponse {
+    let palette = crate::server::theme::ThemePalette::load_current();
+    let url = state.get_url();
+    match palette.generate_qr_svg(&url) {
+        Ok(svg) => (
+            [(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("image/svg+xml"),
+            )],
+            svg,
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error generating QR: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn handle_api_copy(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> impl IntoResponse {
+    let url = state.get_url();
+    let copied = crate::ui::copy_to_clipboard(&url);
+    Json(serde_json::json!({
+        "ok": true,
+        "copied": copied,
+        "url": url
+    }))
+}
+
+pub async fn handle_api_get_keep_streaming() -> impl IntoResponse {
+    let cfg = crate::ui::read_gui_config();
+    Json(serde_json::json!({
+        "keep": cfg.keep_streaming
+    }))
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct KeepStreamingPayload {
+    pub keep: bool,
+}
+
+pub async fn handle_api_set_keep_streaming(
+    Json(payload): Json<KeepStreamingPayload>,
+) -> impl IntoResponse {
+    let mut cfg = crate::ui::read_gui_config();
+    cfg.keep_streaming = payload.keep;
+    let ok = crate::ui::save_gui_config(&cfg).is_ok();
+    Json(serde_json::json!({
+        "ok": ok,
+        "keep": payload.keep
+    }))
+}

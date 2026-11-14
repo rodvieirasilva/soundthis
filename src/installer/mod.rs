@@ -93,9 +93,9 @@ impl Installer {
         Self::install_to(&home, &bin_path, true)?;
 
         println!("\n✅ SoundThis successfully installed!");
-        println!("   Server: Running on port 9697 via systemd user service");
-        println!("   Plugin: Installed in Omarchy bar");
-        println!("   Status: Run `soundthis status` to check streaming status\n");
+        println!("   Desktop: Launch from application menu or run `soundthis`");
+        println!("   Plugin:  Installed in Omarchy bar");
+        println!("   Server:  Runs on-demand on port 9697 (or `soundthis serve`)\n");
 
         Ok(())
     }
@@ -118,7 +118,6 @@ impl Installer {
 
         if manage_systemd {
             SystemdManager::daemon_reload()?;
-            SystemdManager::enable_and_start("soundthis.service")?;
         }
 
         // 2. Install Omarchy plugin

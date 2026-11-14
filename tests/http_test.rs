@@ -176,6 +176,40 @@ async fn test_http_api_routes() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
+    // Test /api/theme
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/theme")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "application/json"
+    );
+
+    // Test /api/qr.svg
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/qr.svg")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "image/svg+xml"
+    );
+
     // Test /api/disable
     let response = app
         .clone()
@@ -220,6 +254,48 @@ async fn test_http_api_routes() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert!(!state.is_enabled());
+
+    // Test /api/copy
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/copy")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Test GET /api/config/keep_streaming
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/config/keep_streaming")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Test POST /api/config/keep_streaming
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/config/keep_streaming")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"keep": true}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[tokio::test]

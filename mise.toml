@@ -121,7 +121,7 @@ description = "Restart the Omarchy desktop shell to reload QML bar widgets"
 run = "omarchy restart shell"
 
 [tasks.reinstall]
-description = "Compile release binary, update ~/.cargo/bin, reinstall service/plugin, and reload Omarchy shell"
+description = "Compile release binary, update ~/.cargo/bin, reinstall plugin, and reload Omarchy shell"
 depends = ["build"]
 run = "cp --remove-destination target/release/soundthis ~/.cargo/bin/soundthis && soundthis install && omarchy restart shell"
 

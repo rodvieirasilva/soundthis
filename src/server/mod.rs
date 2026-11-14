@@ -1,4 +1,5 @@
 pub mod http;
+pub mod theme;
 pub mod ws;
 
 use crate::audio::AudioBroadcaster;
@@ -72,6 +73,13 @@ pub fn build_app(
         .route("/health", get(http::handle_health))
         // API routes
         .route("/api/status", get(http::handle_api_status))
+        .route("/api/theme", get(http::handle_api_theme))
+        .route("/api/qr.svg", get(http::handle_api_qr_svg))
+        .route("/api/copy", post(http::handle_api_copy))
+        .route(
+            "/api/config/keep_streaming",
+            get(http::handle_api_get_keep_streaming).post(http::handle_api_set_keep_streaming),
+        )
         .route("/api/toggle", post(http::handle_api_toggle))
         .route("/api/enable", post(http::handle_api_enable))
         .route("/api/disable", post(http::handle_api_disable))
