@@ -10,6 +10,16 @@ use tracing::info;
 pub fn run_gtk_app(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting SoundThis native GTK4/Adwaita application on port {port}");
 
+    let pid_file = crate::ui::get_gui_pid_file();
+    let _ = std::fs::write(&pid_file, std::process::id().to_string());
+    struct PidGuard(std::path::PathBuf);
+    impl Drop for PidGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+    let _guard = PidGuard(pid_file);
+
     let app = adw::Application::builder()
         .application_id("com.omarchy.soundthis")
         .build();

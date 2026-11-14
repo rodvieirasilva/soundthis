@@ -85,6 +85,14 @@ jobs:
       - name: Arch Linux Package Lifecycle E2E (Container)
         run: ./tests/test-package-e2e.sh --docker
 
+      - name: Build Docker Container (Arch Linux)
+        run: docker build -t soundthis:latest .
+
+      - name: Verify Docker Container
+        run: |
+          docker run --rm soundthis:latest --version
+          docker run --rm soundthis:latest --help
+
       - name: Install Playwright Chromium & system dependencies
         run: |
           cd web

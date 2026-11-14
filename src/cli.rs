@@ -338,43 +338,64 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
         return Ok(());
     }
 
-    let already_running = check_server_running(config.port).await;
+    let mut already_running = check_server_running(config.port).await;
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let mut server_task = None;
 
-    let server_task = if !already_running {
-        println!(
-            "Starting SoundThis audio streaming server on port {}...",
-            config.port
-        );
-        let lan_ip = get_lan_ip();
-        let state = AppState::new(config.port, lan_ip, config.protocol);
-        let broadcaster = Arc::new(AudioBroadcaster::new());
-        let source = ParecAudioSource::new();
-        let _ = broadcaster.start_broadcasting(source, state.clone());
+    if !already_running {
+        // Try starting native background systemd service first if available
+        let systemd_started = Command::new("systemctl")
+            .args(["--user", "start", "soundthis.service"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
 
-        let cfg = config.clone();
-        Some(tokio::spawn(async move {
-            tokio::select! {
-                res = server::run_server(state, broadcaster, &cfg) => {
-                    if let Err(e) = res {
-                        tracing::error!("Server error: {e}");
-                    }
-                }
-                _ = &mut shutdown_rx => {
-                    tracing::info!("Server task shutting down gracefully.");
+        if systemd_started {
+            for _ in 0..10 {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                if check_server_running(config.port).await {
+                    already_running = true;
+                    println!(
+                        "Started SoundThis audio streaming server via systemd on port {}.",
+                        config.port
+                    );
+                    break;
                 }
             }
-        }))
+        }
+
+        // If systemd service was not available or did not respond, run in-process server task
+        if !already_running {
+            println!(
+                "Starting SoundThis audio streaming server on port {}...",
+                config.port
+            );
+            let lan_ip = get_lan_ip();
+            let state = AppState::new(config.port, lan_ip, config.protocol);
+            let broadcaster = Arc::new(AudioBroadcaster::new());
+            let source = ParecAudioSource::new();
+            let _ = broadcaster.start_broadcasting(source, state.clone());
+
+            let cfg = config.clone();
+            server_task = Some(tokio::spawn(async move {
+                tokio::select! {
+                    res = server::run_server(state, broadcaster, &cfg) => {
+                        if let Err(e) = res {
+                            tracing::error!("Server error: {e}");
+                        }
+                    }
+                    _ = &mut shutdown_rx => {
+                        tracing::info!("Server task shutting down gracefully.");
+                    }
+                }
+            }));
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
     } else {
         println!(
             "Connected to existing SoundThis streaming server on port {}.",
             config.port
         );
-        None
-    };
-
-    if !already_running {
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     }
 
     if has_gui_support() {
@@ -389,30 +410,42 @@ pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn s
     let keep = crate::ui::read_gui_config().keep_streaming;
     if !keep {
         if let Some(task) = server_task {
-            println!("SoundThis UI closed. Stopped server.");
             let _ = shutdown_tx.send(());
             task.abort();
         }
         let _ = cmd_stop(config).await;
+        println!("SoundThis UI closed. Stopped server.");
     } else if let Some(task) = server_task {
-        // If systemd user service is available, transfer streaming to systemd so it survives terminal closing
+        // Server was started in-process and keep is true.
+        // Free port first before transferring to systemd if available:
+        let _ = shutdown_tx.send(());
+        task.abort();
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+
         let systemd_started = Command::new("systemctl")
             .args(["--user", "start", "soundthis.service"])
             .status()
             .map(|s| s.success())
             .unwrap_or(false);
 
-        if systemd_started {
+        if systemd_started && check_server_running(config.port).await {
             println!("SoundThis UI closed. Transferred streaming to background systemd service (Omarchy bar).");
-            let _ = shutdown_tx.send(());
-            task.abort();
         } else {
+            // Keep running in-process if systemd was unavailable
             println!("SoundThis UI closed. Streaming continues in background (Omarchy bar).");
             println!("Press Ctrl+C to stop streaming server.");
+            let lan_ip = get_lan_ip();
+            let state = AppState::new(config.port, lan_ip, config.protocol);
+            let broadcaster = Arc::new(AudioBroadcaster::new());
+            let source = ParecAudioSource::new();
+            let _ = broadcaster.start_broadcasting(source, state.clone());
+            let cfg = config.clone();
+            let s_task = tokio::spawn(async move {
+                let _ = server::run_server(state, broadcaster, &cfg).await;
+            });
             let _ = tokio::signal::ctrl_c().await;
             println!("Shutting down SoundThis server...");
-            let _ = shutdown_tx.send(());
-            task.abort();
+            s_task.abort();
         }
     } else {
         let _ = cmd_set_enabled(config, true).await;

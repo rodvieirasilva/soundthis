@@ -193,6 +193,9 @@ impl Installer {
 
         // 6. Reload Omarchy shell if requested
         if manage_systemd {
+            let _ = Command::new("omarchy")
+                .args(["plugin", "enable", "soundthis"])
+                .status();
             info!("Reloading Omarchy shell...");
             let _ = Command::new("omarchy").args(["restart", "shell"]).status();
         }
@@ -276,8 +279,11 @@ impl Installer {
             }
         }
 
-        // 4. Reload Omarchy shell
+        // 6. Reload Omarchy shell
         if manage_systemd {
+            let _ = Command::new("omarchy")
+                .args(["plugin", "disable", "soundthis"])
+                .status();
             let _ = Command::new("omarchy").args(["restart", "shell"]).status();
         }
 
