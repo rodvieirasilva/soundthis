@@ -61,7 +61,8 @@ fn test_config_defaults_and_parsing() {
 
 #[test]
 fn test_desktop_keep_streaming_toml_lifecycle() {
-    let temp_dir = std::env::temp_dir().join(format!("soundthis_cfg_test_{}", std::process::id()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("soundthis_cfg_lifecycle_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&temp_dir);
     let config_file = temp_dir.join("config.toml");
 
@@ -142,7 +143,8 @@ fn test_tls_self_signed_cert_generation() {
 
 #[test]
 fn test_config_load_or_create_file() {
-    let temp_dir = std::env::temp_dir().join(format!("soundthis_cfg_test_{}", std::process::id()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("soundthis_cfg_load_create_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&temp_dir);
     let cfg_path = temp_dir.join("config.toml");
 
@@ -216,4 +218,31 @@ fn test_template_and_asset_validations() {
 
     // Verify external asset validation
     assert!(soundthis::server::http::validate_assets().is_ok());
+}
+
+#[test]
+fn test_update_keep_streaming_missing_section() {
+    let toml_without_desktop = "port = 9697\n";
+    let updated = soundthis::config::update_keep_streaming_in_toml(toml_without_desktop, true);
+    assert!(updated.contains("[desktop]"));
+    assert!(updated.contains("keep_streaming = true"));
+
+    let toml_with_empty_desktop = "port = 9697\n[desktop]\n";
+    let updated2 = soundthis::config::update_keep_streaming_in_toml(toml_with_empty_desktop, false);
+    assert!(updated2.contains("keep_streaming = false"));
+}
+
+#[test]
+fn test_config_tls_default_certs_dir() {
+    let cfg = ServerConfig {
+        protocol: Protocol::Https,
+        tls: soundthis::config::TlsConfig {
+            auto_generate: false,
+            cert_path: None,
+            key_path: None,
+        },
+        ..Default::default()
+    };
+    // Should fail cleanly since default certs don't exist and auto_generate is false
+    assert!(cfg.resolve_tls_pem("127.0.0.1").is_err());
 }

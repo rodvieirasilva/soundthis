@@ -32,7 +32,8 @@ pub fn run_gtk_app(port: u16) -> Result<(), Box<dyn std::error::Error>> {
             return;
         }
 
-        build_ui(app, *port_rc);
+        let window = build_ui_window(Some(app), *port_rc);
+        window.present();
     });
 
     let empty_args: [&str; 0] = [];
@@ -41,13 +42,16 @@ pub fn run_gtk_app(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn build_ui(app: &adw::Application, port: u16) {
-    let window = adw::ApplicationWindow::builder()
-        .application(app)
+pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::ApplicationWindow {
+    let mut builder = adw::ApplicationWindow::builder()
         .title("SoundThis")
         .default_width(440)
-        .default_height(640)
-        .build();
+        .default_height(640);
+    if let Some(a) = app {
+        builder = builder.application(a);
+    }
+    let window = builder.build();
+    window.set_widget_name("main-window");
 
     let header = adw::HeaderBar::new();
     let title = adw::WindowTitle::new("SoundThis", "Desktop Audio Streaming");
@@ -61,11 +65,13 @@ fn build_ui(app: &adw::Application, port: u16) {
         .build();
 
     let stream_switch = gtk4::Switch::builder()
+        .name("stream-switch")
         .active(true)
         .valign(gtk4::Align::Center)
         .build();
 
     let broadcast_row = adw::ActionRow::builder()
+        .name("broadcast-row")
         .title("Broadcasting")
         .subtitle("Stream audio from this computer")
         .build();
@@ -83,11 +89,13 @@ fn build_ui(app: &adw::Application, port: u16) {
         .build();
 
     let url_row = adw::ActionRow::builder()
+        .name("url-row")
         .title("Stream URL")
         .subtitle(&stream_url)
         .build();
 
     let copy_btn = gtk4::Button::builder()
+        .name("copy-btn")
         .icon_name("edit-copy-symbolic")
         .valign(gtk4::Align::Center)
         .tooltip_text("Copy stream URL")
@@ -99,6 +107,7 @@ fn build_ui(app: &adw::Application, port: u16) {
     });
 
     let open_btn = gtk4::Button::builder()
+        .name("open-btn")
         .icon_name("external-link-symbolic")
         .valign(gtk4::Align::Center)
         .tooltip_text("Open in browser")
@@ -116,6 +125,7 @@ fn build_ui(app: &adw::Application, port: u16) {
     connect_group.add(&url_row);
 
     // QR code display
+    let mut picture_weak = None;
     let palette = crate::server::theme::ThemePalette::load_current();
     if let Ok(svg_data) = palette.generate_qr_svg(&stream_url) {
         let qr_row = adw::ActionRow::builder().title("Scan QR Code").build();
@@ -129,10 +139,12 @@ fn build_ui(app: &adw::Application, port: u16) {
             None::<&gio::Cancellable>,
         ) {
             let picture = gtk4::Picture::for_pixbuf(&pixbuf);
+            picture.set_widget_name("qr-picture");
             picture.set_can_shrink(false);
             picture.set_halign(gtk4::Align::Center);
             picture.set_margin_top(8);
             picture.set_margin_bottom(8);
+            picture_weak = Some(picture.downgrade());
             connect_group.add(&picture);
         } else {
             connect_group.add(&qr_row);
@@ -147,6 +159,7 @@ fn build_ui(app: &adw::Application, port: u16) {
         .description("No devices currently connected")
         .build();
     let listeners_row = adw::ActionRow::builder()
+        .name("listeners-row")
         .title("Active Listeners")
         .subtitle("0 devices listening")
         .build();
@@ -160,11 +173,13 @@ fn build_ui(app: &adw::Application, port: u16) {
 
     let keep_cfg = crate::ui::read_gui_config();
     let keep_row = adw::ActionRow::builder()
+        .name("keep-row")
         .title("Keep streaming on close")
         .subtitle("Continue streaming in Omarchy bar when this window closes")
         .build();
 
     let keep_switch = gtk4::Switch::builder()
+        .name("keep-switch")
         .active(keep_cfg.keep_streaming)
         .valign(gtk4::Align::Center)
         .build();
@@ -199,6 +214,24 @@ fn build_ui(app: &adw::Application, port: u16) {
             let _ = ureq_post(&url);
         });
     });
+
+    // Omarchy theme setup
+    let css_provider = gtk4::CssProvider::new();
+    let current_palette = Rc::new(std::cell::RefCell::new(
+        crate::server::theme::ThemePalette::load_current(),
+    ));
+    apply_theme(&css_provider, &current_palette.borrow());
+    if let Some(display) = gtk4::gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &css_provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+
+    // Event-driven Omarchy theme monitoring via gio::FileMonitor (inotify)
+    let theme_monitors =
+        setup_theme_monitor(&css_provider, &current_palette, picture_weak, &stream_url);
 
     // Periodic telemetry update (listeners, streaming state)
     let switch_weak = stream_switch.downgrade();
@@ -245,6 +278,7 @@ fn build_ui(app: &adw::Application, port: u16) {
 
     // Handle window close
     window.connect_close_request(move |_| {
+        let _ = &theme_monitors;
         let keep = crate::ui::read_gui_config().keep_streaming;
         if !keep {
             let url = format!("http://127.0.0.1:{port}/api/disable");
@@ -253,31 +287,154 @@ fn build_ui(app: &adw::Application, port: u16) {
         glib::Propagation::Proceed
     });
 
-    // Apply Omarchy theme styling
-    apply_css_theme();
+    window
+}
 
-    window.present();
+pub fn setup_theme_monitor(
+    css_provider: &gtk4::CssProvider,
+    current_palette: &Rc<std::cell::RefCell<crate::server::theme::ThemePalette>>,
+    picture_weak: Option<gtk4::glib::WeakRef<gtk4::Picture>>,
+    stream_url: &str,
+) -> Vec<gio::FileMonitor> {
+    let mut monitors = Vec::new();
+    let home = std::env::var("HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+
+    let theme_dir = home.join(".local/state/omarchy/current/theme");
+    let current_dir = home.join(".local/state/omarchy/current");
+
+    let css_provider = css_provider.clone();
+    let current_palette = current_palette.clone();
+    let stream_url = stream_url.to_string();
+
+    let reload_theme = Rc::new(move || {
+        let new_palette = crate::server::theme::ThemePalette::load_current();
+        if new_palette != *current_palette.borrow() {
+            *current_palette.borrow_mut() = new_palette.clone();
+            apply_theme(&css_provider, &new_palette);
+
+            if let Some(ref p_weak) = picture_weak {
+                if let Some(pic) = p_weak.upgrade() {
+                    if let Ok(svg_data) = new_palette.generate_qr_svg(&stream_url) {
+                        let bytes = glib::Bytes::from(svg_data.as_bytes());
+                        let stream = gio::MemoryInputStream::from_bytes(&bytes);
+                        if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_stream_at_scale(
+                            &stream,
+                            200,
+                            200,
+                            true,
+                            None::<&gio::Cancellable>,
+                        ) {
+                            pic.set_pixbuf(Some(&pixbuf));
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    for path in [&current_dir, &theme_dir] {
+        if path.exists() {
+            let file = gio::File::for_path(path);
+            if let Ok(monitor) =
+                file.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+            {
+                let cb = reload_theme.clone();
+                let debounce_id = Rc::new(std::cell::RefCell::new(None::<glib::SourceId>));
+                let debounce_id_clone = debounce_id.clone();
+
+                monitor.connect_changed(move |_, _, _, _| {
+                    if let Some(id) = debounce_id_clone.borrow_mut().take() {
+                        id.remove();
+                    }
+                    let cb_inner = cb.clone();
+                    let id = glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(80),
+                        move || {
+                            cb_inner();
+                        },
+                    );
+                    *debounce_id_clone.borrow_mut() = Some(id);
+                });
+                monitors.push(monitor);
+            }
+        }
+    }
+
+    monitors
+}
+
+pub fn find_widget_by_name<W: glib::object::IsA<gtk4::Widget>>(
+    root: &gtk4::Widget,
+    name: &str,
+) -> Option<W> {
+    if root.widget_name() == name {
+        return root.clone().downcast::<W>().ok();
+    }
+    let mut child = root.first_child();
+    while let Some(c) = child {
+        if let Some(found) = find_widget_by_name::<W>(&c, name) {
+            return Some(found);
+        }
+        child = c.next_sibling();
+    }
+    None
 }
 
 pub fn build_theme_css(palette: &crate::server::theme::ThemePalette) -> String {
+    let accent_fg = if palette.mode == "light" {
+        "#ffffff"
+    } else {
+        &palette.darker_background
+    };
     format!(
-        "window {{ background-color: {}; color: {}; }}",
-        palette.background, palette.bright_foreground
+        r#"
+@define-color window_bg_color {bg};
+@define-color window_fg_color {fg};
+@define-color view_bg_color {bg};
+@define-color view_fg_color {fg};
+@define-color headerbar_bg_color {dark_bg};
+@define-color headerbar_fg_color {fg};
+@define-color card_bg_color {card_bg};
+@define-color card_fg_color {fg};
+@define-color accent_color {accent};
+@define-color accent_bg_color {accent};
+@define-color accent_fg_color {accent_fg};
+
+window, window.background, .background, preferencespage, scrolledwindow, viewport {{
+    background-color: {bg};
+    color: {fg};
+}}
+
+headerbar {{
+    background-color: {dark_bg};
+    color: {fg};
+}}
+
+.boxed-list, row {{
+    background-color: {card_bg};
+    color: {fg};
+}}
+"#,
+        bg = palette.background,
+        fg = palette.bright_foreground,
+        dark_bg = palette.dark_background,
+        card_bg = palette.lighter_background,
+        accent = palette.accent,
+        accent_fg = accent_fg,
     )
 }
 
-fn apply_css_theme() {
-    let palette = crate::server::theme::ThemePalette::load_current();
-    let css = build_theme_css(&palette);
-    let provider = gtk4::CssProvider::new();
-    provider.load_from_data(&css);
-    if let Some(display) = gtk4::gdk::Display::default() {
-        gtk4::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+pub fn apply_theme(provider: &gtk4::CssProvider, palette: &crate::server::theme::ThemePalette) {
+    let style_manager = adw::StyleManager::default();
+    if palette.mode == "light" {
+        style_manager.set_color_scheme(adw::ColorScheme::ForceLight);
+    } else {
+        style_manager.set_color_scheme(adw::ColorScheme::ForceDark);
     }
+    let css = build_theme_css(palette);
+    provider.load_from_data(&css);
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -305,81 +462,46 @@ pub fn parse_status_json(val: &serde_json::Value) -> SimpleStatus {
     SimpleStatus { enabled, clients }
 }
 
-fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(400))
-        .build()?;
-    let res: serde_json::Value = client
-        .get(format!("http://127.0.0.1:{port}/api/status"))
-        .send()?
-        .json()?;
-    Ok(parse_status_json(&res))
+pub fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error>> {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect_timeout(
+        &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
+        std::time::Duration::from_millis(400),
+    )?;
+    stream.set_read_timeout(Some(std::time::Duration::from_millis(400)))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(400)))?;
+
+    let req =
+        format!("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes())?;
+
+    let mut buf = [0u8; 8192];
+    let n = stream.read(&mut buf)?;
+    let resp = String::from_utf8_lossy(&buf[..n]);
+
+    if let Some(body_idx) = resp.find("\r\n\r\n") {
+        let body = &resp[body_idx + 4..];
+        let val: serde_json::Value = serde_json::from_str(body)?;
+        return Ok(parse_status_json(&val));
+    }
+    Err("Invalid HTTP response".into())
 }
 
-fn ureq_post(url: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()?;
-    client.post(url).send()?;
+pub fn ureq_post(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+    let trimmed = url.trim_start_matches("http://");
+    let (host_port, path) = match trimmed.split_once('/') {
+        Some((hp, p)) => (hp, format!("/{p}")),
+        None => (trimmed, "/".to_string()),
+    };
+    let addr: std::net::SocketAddr = host_port.parse()?;
+    let mut stream =
+        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(400))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(400)))?;
+
+    let req = format!(
+        "POST {path} HTTP/1.1\r\nHost: {host_port}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    stream.write_all(req.as_bytes())?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_build_theme_css() {
-        let palette = crate::server::theme::ThemePalette::default();
-        let css = build_theme_css(&palette);
-        assert!(css.contains("window {"));
-        assert!(css.contains(&palette.background));
-        assert!(css.contains(&palette.bright_foreground));
-    }
-
-    #[test]
-    fn test_parse_status_json() {
-        let json = serde_json::json!({
-            "enabled": true,
-            "clients": [
-                {
-                    "name": "My Phone",
-                    "ip": "192.168.1.100"
-                }
-            ]
-        });
-
-        let status = parse_status_json(&json);
-        assert!(status.enabled);
-        assert_eq!(status.clients.len(), 1);
-        assert_eq!(status.clients[0].name, "My Phone");
-        assert_eq!(status.clients[0].ip, "192.168.1.100");
-    }
-
-    #[test]
-    fn test_parse_status_json_empty() {
-        let json = serde_json::json!({});
-        let status = parse_status_json(&json);
-        assert!(!status.enabled);
-        assert!(status.clients.is_empty());
-    }
-
-    #[test]
-    fn test_apply_css_theme_does_not_panic() {
-        if gtk4::init().is_ok() {
-            apply_css_theme();
-        }
-    }
-
-    #[test]
-    fn test_fetch_status_offline() {
-        let res = fetch_status(59998);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_ureq_post_offline() {
-        let res = ureq_post("http://127.0.0.1:59998/api/disable");
-        assert!(res.is_err());
-    }
 }

@@ -36,7 +36,10 @@ soundthis/
 │   ├── manifest.json              # Omarchy shell plugin manifest
 │   └── Panel.qml                  # Omarchy desktop bar widget and popout panel
 ├── scripts/
-│   └── capture-widget.sh          # Desktop widget screenshot automation via grim & quickshell
+│   ├── capture-app.sh             # Desktop GTK4 window screenshot capture
+│   ├── capture-widget.sh          # Desktop widget screenshot automation via grim & quickshell
+│   ├── create-theme-gif.sh        # Animated theme synchronization GIF generator
+│   └── docker-run.sh              # Containerized desktop audio streaming helper
 ├── systemd/
 │   └── soundthis.service.template # Systemd user service template with %BIN_PATH%
 ├── src/
@@ -71,7 +74,9 @@ soundthis/
 │   ├── http_test.rs               # Axum routes, CORS headers, and AppState tests
 │   ├── package_test.rs            # Package metadata, staging layout, and lifecycle tests
 │   ├── test-package-e2e.sh        # Real makepkg and pacman lifecycle verification (zero mocks)
-│   └── e2e_test.rs                # End-to-end tests (HTTP, HTTPS, WebSocket streaming, CLI)
+│   ├── ui_test.rs                 # Native GTK4/Adwaita widget tree, simulation, and config tests
+│   ├── websocket_test.rs          # WebSocket streaming, pause/resume, and theme broadcast tests
+│   └── e2e_test.rs                # End-to-end tests (HTTP, HTTPS, CLI remote control, memory bounds)
 ├── web/
 │   ├── index.html                 # Frontend HTML shell
 │   ├── vite.config.ts             # Vite singlefile bundler + inline SVG plugin
@@ -79,7 +84,8 @@ soundthis/
 │   ├── e2e/
 │   │   └── browser.test.ts        # Playwright E2E browser tests (sound, console, memory leaks)
 │   ├── scripts/
-│   │   └── capture-screenshots.mjs# Headless Playwright script for desktop & mobile screenshots
+│   │   ├── capture-screenshots.mjs# Headless Playwright script for desktop & mobile screenshots
+│   │   └── capture-panel.mjs      # Headless Playwright runner for single theme panel capture
 │   └── src/
 │       ├── main.ts                # Frontend entrypoint
 │       ├── style.css              # Tokyo Night themed UI styles
@@ -167,6 +173,9 @@ mise run reinstall
 
 # Refresh documentation screenshots (web desktop/mobile + Omarchy panel)
 mise run screenshots
+
+# Generate animated GIF showing live theme sync across all interfaces
+mise run gif
 ```
 
 ---

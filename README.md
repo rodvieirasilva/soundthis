@@ -23,6 +23,18 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
 ## Preview
 
 <p align="center">
+  <img src="docs/screenshots/live-theme-sync.gif" alt="SoundThis Live Omarchy Theme Synchronization" width="96%" />
+</p>
+
+<p align="center">
+  <em>Live synchronized theme switching across all 3 interfaces: Web Client, Native GTK4 Desktop App, and Omarchy Bar Widget (cycling Tokyo Night, Catppuccin Latte, Gruvbox, and White).</em>
+</p>
+
+<details>
+<summary><strong>View Individual Static Screenshots</strong></summary>
+<br>
+
+<p align="center">
   <img src="docs/screenshots/desktop-app.png" alt="SoundThis Native GTK4 Desktop Application" width="31%" />
   &nbsp;
   <img src="docs/screenshots/web-client.png" alt="SoundThis Web Player Interface" width="31%" />
@@ -35,6 +47,8 @@ SoundThis captures the audio playback from your Omarchy desktop (PipeWire/PulseA
   Center: Embedded web player with real-time waveform visualizer, client naming, and 0ms event-driven theme sync.<br>
   Right: Native Omarchy desktop bar widget and popout panel showing server link and active listeners.</em>
 </p>
+
+</details>
 
 ---
 
@@ -112,7 +126,7 @@ Pre-built standalone Linux binaries are published for both **x86_64** (AMD64/Int
 ```bash
 # Auto-detect architecture (x86_64 or aarch64), download latest release, and install
 ARCH=$(uname -m)
-curl -sL "https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.4.0-${ARCH}-linux.tar.gz" | tar -xz -C ~/.local/bin soundthis
+curl -sL "https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.5.0-${ARCH}-linux.tar.gz" | tar -xz -C ~/.local/bin soundthis
 soundthis install
 ```
 

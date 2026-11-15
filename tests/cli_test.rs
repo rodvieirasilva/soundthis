@@ -156,3 +156,38 @@ async fn test_cmd_app_single_instance_detection() {
 
     let _ = std::fs::remove_file(pid_file);
 }
+
+#[tokio::test]
+async fn test_run_with_cli_subcommands() {
+    let offline_cfg = ServerConfig {
+        port: 59125,
+        ..Default::default()
+    };
+    let tmp_cfg =
+        std::env::temp_dir().join(format!("soundthis_cli_run_{}.toml", std::process::id()));
+    let _ = std::fs::write(&tmp_cfg, toml::to_string(&offline_cfg).unwrap());
+
+    // Status subcommand via run_with_cli
+    let cli_status = Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Status),
+    };
+    assert!(cli::run_with_cli(cli_status).await.is_ok());
+
+    // Stop subcommand via run_with_cli
+    let cli_stop = Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Stop),
+    };
+    assert!(cli::run_with_cli(cli_stop).await.is_ok());
+
+    // Open subcommand via run_with_cli
+    std::env::set_var("SOUNDTHIS_TEST", "1");
+    let cli_open = Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Open),
+    };
+    assert!(cli::run_with_cli(cli_open).await.is_ok());
+
+    let _ = std::fs::remove_file(tmp_cfg);
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { applyTheme, fetchAndApplyTheme, hexToRgba, ThemePalette } from './theme';
+import { applyTheme, fetchAndApplyTheme, getContrastColor, hexToRgba, ThemePalette } from './theme';
 
 describe('Theme Service', () => {
   beforeEach(() => {
@@ -11,6 +11,14 @@ describe('Theme Service', () => {
     expect(hexToRgba('#7aa2f7', 0.25)).toBe('rgba(122, 162, 247, 0.25)');
     expect(hexToRgba('7aa2f7', 0.5)).toBe('rgba(122, 162, 247, 0.5)');
     expect(hexToRgba('invalid', 0.5)).toBe('invalid');
+  });
+
+  it('determines contrast color based on luminance', () => {
+    expect(getContrastColor('#ffffff')).toBe('#1a1b26');
+    expect(getContrastColor('#eff1f5')).toBe('#1a1b26');
+    expect(getContrastColor('#000000')).toBe('#ffffff');
+    expect(getContrastColor('#1a1b26')).toBe('#ffffff');
+    expect(getContrastColor('invalid')).toBe('#ffffff');
   });
 
   it('applies palette to document.documentElement CSS variables', () => {
@@ -35,6 +43,7 @@ describe('Theme Service', () => {
     expect(root.style.getPropertyValue('--fg')).toBe('#ffffff');
     expect(root.style.getPropertyValue('--fg-dim')).toBe('#cccccc');
     expect(root.style.getPropertyValue('--accent')).toBe('#ff007f');
+    expect(root.style.getPropertyValue('--accent-fg')).toBe('#ffffff');
     expect(root.style.getPropertyValue('--border')).toBe('rgba(255, 0, 127, 0.25)');
     expect(root.style.getPropertyValue('--green')).toBe('#00ff00');
     expect(root.style.getPropertyValue('--yellow')).toBe('#ffff00');

@@ -97,6 +97,32 @@ pub fn is_gui_running() -> bool {
     is_gui_running_from(&get_gui_pid_file())
 }
 
+pub fn stop_gui_process() -> bool {
+    stop_gui_process_from(&get_gui_pid_file())
+}
+
+pub fn stop_gui_process_from(pid_file: &std::path::Path) -> bool {
+    let content = match std::fs::read_to_string(pid_file) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let pid: u32 = match content.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            let _ = std::fs::remove_file(pid_file);
+            return false;
+        }
+    };
+
+    if pid == std::process::id() {
+        return false;
+    }
+
+    let _ = Command::new("kill").arg(pid.to_string()).status();
+    let _ = std::fs::remove_file(pid_file);
+    true
+}
+
 pub fn is_gui_running_from(pid_file: &std::path::Path) -> bool {
     let content = match std::fs::read_to_string(pid_file) {
         Ok(c) => c,
@@ -199,87 +225,128 @@ pub fn run_desktop_ui(_port: u16) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_gui_config_serialization() {
-        let tmp =
-            std::env::temp_dir().join(format!("soundthis_gui_test_{}.json", std::process::id()));
-        let mut cfg = GuiConfig::default();
-        assert!(!cfg.keep_streaming);
-
-        cfg.keep_streaming = true;
-        save_gui_config_to(&tmp, &cfg).expect("save should succeed");
-
-        let loaded = read_gui_config_from(&tmp);
-        assert_eq!(loaded, cfg);
-        assert!(loaded.keep_streaming);
-
-        let _ = std::fs::remove_file(tmp);
+pub async fn run_desktop_workflow(
+    config: &crate::config::ServerConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if is_gui_running() {
+        println!("SoundThis desktop window is already open. Bringing window to focus.");
+        focus_existing_window();
+        return Ok(());
     }
 
-    #[test]
-    fn test_paths_and_default_reading() {
-        let p = get_gui_config_path();
-        assert!(p.ends_with("config.toml"));
-        let initial = read_gui_config();
-        let _ = save_gui_config(&initial);
-        let reloaded = read_gui_config();
-        assert_eq!(initial, reloaded);
+    let mut already_running = crate::cli::check_server_running(config.port).await;
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let mut server_task = None;
 
-        let pid_path = get_gui_pid_file();
-        assert!(pid_path.ends_with("soundthis_gui.pid"));
-        let _ = is_gui_running();
+    if !already_running {
+        // Try starting native background systemd service first if available
+        let systemd_started = Command::new("systemctl")
+            .args(["--user", "start", "soundthis.service"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if systemd_started {
+            for _ in 0..10 {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                if crate::cli::check_server_running(config.port).await {
+                    already_running = true;
+                    println!(
+                        "Started SoundThis audio streaming server via systemd on port {}.",
+                        config.port
+                    );
+                    break;
+                }
+            }
+        }
+
+        // If systemd service was not available or did not respond, run in-process server task
+        if !already_running {
+            println!(
+                "Starting SoundThis audio streaming server on port {}...",
+                config.port
+            );
+            let lan_ip = crate::network::ip::get_lan_ip();
+            let state = crate::state::AppState::new(config.port, lan_ip, config.protocol);
+            let broadcaster = std::sync::Arc::new(crate::audio::AudioBroadcaster::new());
+            let source = crate::audio::ParecAudioSource::new();
+            let _ = broadcaster.start_broadcasting(source, state.clone());
+
+            let cfg = config.clone();
+            server_task = Some(tokio::spawn(async move {
+                tokio::select! {
+                    res = crate::server::run_server(state, broadcaster, &cfg) => {
+                        if let Err(e) = res {
+                            tracing::error!("Server error: {e}");
+                        }
+                    }
+                    _ = &mut shutdown_rx => {
+                        tracing::info!("Server task shutting down gracefully.");
+                    }
+                }
+            }));
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+    } else {
+        println!(
+            "Connected to existing SoundThis streaming server on port {}.",
+            config.port
+        );
     }
 
-    #[test]
-    fn test_read_missing_config_returns_default() {
-        let missing = PathBuf::from("/non/existent/path/gui.json");
-        let cfg = read_gui_config_from(&missing);
-        assert_eq!(cfg, GuiConfig::default());
+    if crate::cli::has_gui_support() {
+        let _ = run_desktop_ui(config.port);
+    } else {
+        eprintln!(
+            "Notice: SoundThis compiled without GUI support. Opening web control player instead."
+        );
+        let _ = crate::cli::cmd_open(config).await;
     }
 
-    #[test]
-    fn test_copy_to_clipboard_does_not_panic() {
-        // Even if wl-copy / xclip fails or succeeds, it shouldn't panic
-        let _ = copy_to_clipboard("test_stream_url");
+    let keep = read_gui_config().keep_streaming;
+    if !keep {
+        if let Some(task) = server_task {
+            let _ = shutdown_tx.send(());
+            task.abort();
+        }
+        let _ = crate::cli::cmd_stop(config).await;
+        println!("SoundThis UI closed. Stopped server.");
+    } else if let Some(task) = server_task {
+        // Server was started in-process and keep is true.
+        // Free port first before transferring to systemd if available:
+        let _ = shutdown_tx.send(());
+        task.abort();
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+
+        let systemd_started = Command::new("systemctl")
+            .args(["--user", "start", "soundthis.service"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if systemd_started && crate::cli::check_server_running(config.port).await {
+            println!("SoundThis UI closed. Transferred streaming to background systemd service (Omarchy bar).");
+        } else {
+            // Keep running in-process if systemd was unavailable
+            println!("SoundThis UI closed. Streaming continues in background (Omarchy bar).");
+            println!("Press Ctrl+C to stop streaming server.");
+            let lan_ip = crate::network::ip::get_lan_ip();
+            let state = crate::state::AppState::new(config.port, lan_ip, config.protocol);
+            let broadcaster = std::sync::Arc::new(crate::audio::AudioBroadcaster::new());
+            let source = crate::audio::ParecAudioSource::new();
+            let _ = broadcaster.start_broadcasting(source, state.clone());
+            let cfg = config.clone();
+            let s_task = tokio::spawn(async move {
+                let _ = crate::server::run_server(state, broadcaster, &cfg).await;
+            });
+            let _ = tokio::signal::ctrl_c().await;
+            println!("Shutting down SoundThis server...");
+            s_task.abort();
+        }
+    } else {
+        let _ = crate::cli::cmd_set_enabled(config, true).await;
+        println!("SoundThis UI closed. Background streaming active in Omarchy bar.");
     }
 
-    #[test]
-    fn test_is_gui_running_missing_file() {
-        let tmp = std::env::temp_dir().join(format!("test_missing_pid_{}.pid", std::process::id()));
-        let _ = std::fs::remove_file(&tmp);
-        assert!(!is_gui_running_from(&tmp));
-    }
-
-    #[test]
-    fn test_is_gui_running_invalid_pid() {
-        let tmp = std::env::temp_dir().join(format!("test_invalid_pid_{}.pid", std::process::id()));
-        std::fs::write(&tmp, "not_a_number").unwrap();
-        assert!(!is_gui_running_from(&tmp));
-        assert!(!tmp.exists());
-    }
-
-    #[test]
-    fn test_is_gui_running_dead_pid() {
-        let tmp = std::env::temp_dir().join(format!("test_dead_pid_{}.pid", std::process::id()));
-        std::fs::write(&tmp, "9999999").unwrap();
-        assert!(!is_gui_running_from(&tmp));
-        assert!(!tmp.exists());
-    }
-
-    #[test]
-    fn test_is_gui_running_active_test_process() {
-        let tmp = std::env::temp_dir().join(format!("test_active_pid_{}.pid", std::process::id()));
-        std::fs::write(&tmp, std::process::id().to_string()).unwrap();
-        assert!(is_gui_running_from(&tmp));
-        let _ = std::fs::remove_file(&tmp);
-    }
-
-    #[test]
-    fn test_focus_existing_window_does_not_panic() {
-        let _ = focus_existing_window();
-    }
+    Ok(())
 }

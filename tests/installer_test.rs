@@ -99,3 +99,47 @@ fn test_installer_helpers_and_systemd() {
     let start_err = SystemdManager::enable_and_start("soundthis-dummy-test.service");
     assert!(start_err.is_err());
 }
+
+#[test]
+fn test_installer_validate_templates() {
+    assert!(Installer::validate_templates().is_ok());
+}
+
+#[test]
+fn test_installer_edge_cases_and_uninstall_empty() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("soundthis_install_edge_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    // Uninstall on clean directory without files succeeds
+    assert!(Installer::uninstall_from(&temp_dir, false).is_ok());
+
+    // Shell config with malformed JSON
+    let shell_dir = temp_dir.join(".config/omarchy");
+    let _ = std::fs::create_dir_all(&shell_dir);
+    std::fs::write(shell_dir.join("shell.json"), "invalid json content").unwrap();
+
+    let fake_bin = temp_dir.join("bin/soundthis");
+    assert!(Installer::install_to(&temp_dir, &fake_bin, false).is_ok());
+    assert!(Installer::uninstall_from(&temp_dir, false).is_ok());
+
+    // Shell config with string element "soundthis"
+    let string_shell_json = serde_json::json!({
+        "bar": {
+            "layout": {
+                "right": ["soundthis", "clock"]
+            }
+        }
+    });
+    std::fs::write(
+        shell_dir.join("shell.json"),
+        serde_json::to_string(&string_shell_json).unwrap(),
+    )
+    .unwrap();
+
+    assert!(Installer::install_to(&temp_dir, &fake_bin, false).is_ok());
+    assert!(Installer::uninstall_from(&temp_dir, false).is_ok());
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

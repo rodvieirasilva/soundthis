@@ -332,142 +332,30 @@ pub async fn cmd_app(config: &ServerConfig) -> Result<(), Box<dyn std::error::Er
 }
 
 pub async fn run_desktop_workflow(config: &ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
-    if crate::ui::is_gui_running() {
-        println!("SoundThis desktop window is already open. Bringing window to focus.");
-        crate::ui::focus_existing_window();
-        return Ok(());
-    }
-
-    let mut already_running = check_server_running(config.port).await;
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    let mut server_task = None;
-
-    if !already_running {
-        // Try starting native background systemd service first if available
-        let systemd_started = Command::new("systemctl")
-            .args(["--user", "start", "soundthis.service"])
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-
-        if systemd_started {
-            for _ in 0..10 {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                if check_server_running(config.port).await {
-                    already_running = true;
-                    println!(
-                        "Started SoundThis audio streaming server via systemd on port {}.",
-                        config.port
-                    );
-                    break;
-                }
-            }
-        }
-
-        // If systemd service was not available or did not respond, run in-process server task
-        if !already_running {
-            println!(
-                "Starting SoundThis audio streaming server on port {}...",
-                config.port
-            );
-            let lan_ip = get_lan_ip();
-            let state = AppState::new(config.port, lan_ip, config.protocol);
-            let broadcaster = Arc::new(AudioBroadcaster::new());
-            let source = ParecAudioSource::new();
-            let _ = broadcaster.start_broadcasting(source, state.clone());
-
-            let cfg = config.clone();
-            server_task = Some(tokio::spawn(async move {
-                tokio::select! {
-                    res = server::run_server(state, broadcaster, &cfg) => {
-                        if let Err(e) = res {
-                            tracing::error!("Server error: {e}");
-                        }
-                    }
-                    _ = &mut shutdown_rx => {
-                        tracing::info!("Server task shutting down gracefully.");
-                    }
-                }
-            }));
-            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-        }
-    } else {
-        println!(
-            "Connected to existing SoundThis streaming server on port {}.",
-            config.port
-        );
-    }
-
-    if has_gui_support() {
-        let _ = crate::ui::run_desktop_ui(config.port);
-    } else {
-        eprintln!(
-            "Notice: SoundThis compiled without GUI support. Opening web control player instead."
-        );
-        let _ = cmd_open(config).await;
-    }
-
-    let keep = crate::ui::read_gui_config().keep_streaming;
-    if !keep {
-        if let Some(task) = server_task {
-            let _ = shutdown_tx.send(());
-            task.abort();
-        }
-        let _ = cmd_stop(config).await;
-        println!("SoundThis UI closed. Stopped server.");
-    } else if let Some(task) = server_task {
-        // Server was started in-process and keep is true.
-        // Free port first before transferring to systemd if available:
-        let _ = shutdown_tx.send(());
-        task.abort();
-        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
-
-        let systemd_started = Command::new("systemctl")
-            .args(["--user", "start", "soundthis.service"])
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-
-        if systemd_started && check_server_running(config.port).await {
-            println!("SoundThis UI closed. Transferred streaming to background systemd service (Omarchy bar).");
-        } else {
-            // Keep running in-process if systemd was unavailable
-            println!("SoundThis UI closed. Streaming continues in background (Omarchy bar).");
-            println!("Press Ctrl+C to stop streaming server.");
-            let lan_ip = get_lan_ip();
-            let state = AppState::new(config.port, lan_ip, config.protocol);
-            let broadcaster = Arc::new(AudioBroadcaster::new());
-            let source = ParecAudioSource::new();
-            let _ = broadcaster.start_broadcasting(source, state.clone());
-            let cfg = config.clone();
-            let s_task = tokio::spawn(async move {
-                let _ = server::run_server(state, broadcaster, &cfg).await;
-            });
-            let _ = tokio::signal::ctrl_c().await;
-            println!("Shutting down SoundThis server...");
-            s_task.abort();
-        }
-    } else {
-        let _ = cmd_set_enabled(config, true).await;
-        println!("SoundThis UI closed. Background streaming active in Omarchy bar.");
-    }
-
-    Ok(())
+    crate::ui::run_desktop_workflow(config).await
 }
 
 pub async fn cmd_stop(config: &ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Try to stop systemd user service if running
+    // 1. Terminate GUI application window if running
+    crate::ui::stop_gui_process();
+
+    // 2. Try to stop systemd user service if running
     let _ = Command::new("systemctl")
         .args(["--user", "stop", "soundthis.service"])
         .status();
 
-    // 2. Try disabling active streaming via HTTP API
+    // 3. Try disabling active streaming via HTTP API
     let scheme = config.protocol.scheme();
     let client = make_http_client();
     let _ = client
         .post(format!("{scheme}://127.0.0.1:{}/api/disable", config.port))
         .send()
         .await;
+
+    // 4. Terminate any standalone 'soundthis serve' processes
+    let _ = Command::new("pkill")
+        .args(["-f", "soundthis serve"])
+        .status();
 
     println!("SoundThis audio streaming service stopped.");
     Ok(())

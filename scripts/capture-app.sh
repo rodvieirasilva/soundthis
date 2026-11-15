@@ -35,7 +35,7 @@ if [ -z "$BIN" ]; then
 fi
 
 # 3. Launch application in the background
-"$BIN" &
+"$BIN" app &
 APP_PID=$!
 
 cleanup() {
