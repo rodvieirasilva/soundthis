@@ -253,7 +253,23 @@ sample_rate = 48000
 channels = 2
 chunk_size = 3840
 latency_ms = 20
+
+[desktop]
+# Continue audio streaming in background when the desktop application window closes (default: true)
+# When set to false, closing the GTK4 window stops streaming completely.
+keep_streaming = true
 ```
+
+### Desktop Keep Streaming Behavior
+
+The `keep_streaming` setting in `[desktop]` dictates the lifecycle of the streaming server when closing the GTK4 desktop application:
+- **`true` (Default)**: Closing the desktop window keeps audio streaming active in the background, allowing seamless playback on connected devices and continued status tracking in the Omarchy top bar widget.
+- **`false`**: Closing the desktop window terminates active streaming immediately.
+
+You can toggle this preference at any time from:
+1. The **"Keep streaming in Omarchy bar"** switch in the native desktop app preferences.
+2. The REST API endpoint: `POST /api/config/keep_streaming` with `{"keep": true|false}` (or `GET /api/config/keep_streaming`).
+3. Directly editing `keep_streaming` in `~/.config/soundthis/config.toml`.
 
 You can also specify a custom configuration file using the `--config` flag:
 ```bash
