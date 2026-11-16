@@ -8,7 +8,7 @@ RUN npm run build
 
 # Stage 2: Build Rust single binary (headless, no-default-features)
 FROM rust:alpine AS rust-builder
-RUN apk add --no-cache musl-dev build-base
+RUN apk add --no-cache musl-dev build-base perl
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 # Pre-copy web dist from stage 1 so include_str! succeeds
@@ -32,7 +32,9 @@ RUN apk add --no-cache \
     ca-certificates
 
 # Create non-root user and required runtime directories
-RUN adduser -D -u 1000 -G audio soundthis && \
+RUN (getent group audio >/dev/null || addgroup -g 29 audio || addgroup audio) && \
+    adduser -D -u 1000 -s /bin/sh soundthis && \
+    addgroup soundthis audio && \
     mkdir -p /home/soundthis/.config/soundthis /home/soundthis/.config/pulse && \
     chown -R soundthis:soundthis /home/soundthis
 

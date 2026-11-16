@@ -10,4 +10,5 @@ docs/
 *.jpg
 *.svg
 !web/src/assets/icons/*.svg
+!pkg/*.svg
 !assets/favicon.ico
