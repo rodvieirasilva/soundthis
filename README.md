@@ -343,6 +343,12 @@ mise run lint:web        # Run ESLint on frontend TypeScript
 mise run fmt             # Automatically format Rust code
 ```
 
+### Versioning & Release Process
+
+For the step-by-step guide to bumping versions, creating multi-architecture GitHub releases, and submitting packaging updates to Omarchy Linux (`omacom/omarchy-pkgs`), see:
+
+👉 **[Release & Versioning Guide](docs/release-process.md)**
+
 ---
 
 ## Architecture (SOLID Principles)
@@ -365,7 +371,7 @@ mise run fmt             # Automatically format Rust code
   - `services/ws.ts`: Resilient WebSocket connection manager with auto-reconnect.
   - `ui/app.ts`: Application orchestrator and UI event coordinator.
 
-For comprehensive architectural patterns, quality gates, and AI contributor rules, see [AGENTS.md](AGENTS.md).
+For comprehensive architectural patterns, quality gates, and AI contributor rules, see [AGENTS.md](AGENTS.md) and the [Release Process Guide](docs/release-process.md).
 
 ---
 

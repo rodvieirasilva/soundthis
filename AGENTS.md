@@ -31,6 +31,7 @@ soundthis/
 ├── config/
 │   └── config.toml.template       # External template for ~/.config/soundthis/config.toml
 ├── docs/
+│   ├── release-process.md         # Release lifecycle, version bumping & Omarchy PKG PR guide
 │   └── screenshots/               # UI and desktop screenshots for documentation
 ├── plugin/
 │   ├── manifest.json              # Omarchy shell plugin manifest
@@ -203,3 +204,18 @@ Before declaring any task or ticket complete, execute this checklist:
 4. `mise run coverage` verifies both Rust and Web suites remain **>= 80%**.
 5. Any new templates, icons, or configurations are created as **external files**, not embedded string constants.
 6. If QML or web UI styling changed, update screenshots via `mise run screenshots`.
+
+---
+
+## 7. Version Generation & Release Process
+
+When cutting a new version release of SoundThis or updating packaging recipes, contributors and AI agents must follow the comprehensive guide in:
+
+👉 **[docs/release-process.md](docs/release-process.md)**
+
+Key rules for release execution:
+- **Synchronized Version Bump**: Bump version across all 8 files (`Cargo.toml`, `Cargo.lock`, `web/package.json`, `web/index.html`, `plugin/manifest.json`, `plugin/Panel.qml`, `pkg/PKGBUILD`, `README.md`).
+- **Full Release PR Lifecycle**: Land the version bump via PR on `master`, then tag `vX.Y.Z` and push to trigger `.github/workflows/release.yml`.
+- **Pinned Checksum Recording**: Download release tarball checksums from GitHub Releases and pin them in `soundthis/pkg/PKGBUILD`.
+- **Upstream Omarchy Packaging PR**: Update or open the PR on `omacom/omarchy-pkgs` (`pkgbuilds/soundthis/PKGBUILD`), verify locally with `makepkg -C -c -f --nodeps`, and include the upstream repository link in the PR description.
+
