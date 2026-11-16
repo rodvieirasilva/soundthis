@@ -40,7 +40,7 @@ pub struct StatusResponse {
     pub online: bool,
     #[schema(example = true)]
     pub enabled: bool,
-    #[schema(example = "0.5.0")]
+    #[schema(example = "0.6.0")]
     pub version: &'static str,
     #[schema(example = "http")]
     pub protocol: &'static str,

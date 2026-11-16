@@ -126,7 +126,7 @@ Pre-built standalone Linux binaries are published for both **x86_64** (AMD64/Int
 ```bash
 # Auto-detect architecture (x86_64 or aarch64), download latest release, and install
 ARCH=$(uname -m)
-curl -sL "https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.5.0-${ARCH}-linux.tar.gz" | tar -xz -C ~/.local/bin soundthis
+curl -sL "https://github.com/rodvieirasilva/soundthis/releases/latest/download/soundthis-v0.6.0-${ARCH}-linux.tar.gz" | tar -xz -C ~/.local/bin soundthis
 soundthis install
 ```
 
