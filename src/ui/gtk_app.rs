@@ -209,7 +209,7 @@ pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::Applic
         }
         let active = sw.is_active();
         let endpoint = if active { "enable" } else { "disable" };
-        let url = format!("http://127.0.0.1:{port}/api/{endpoint}");
+        let url = format!("http://127.0.0.1:{port}/api/v1/{endpoint}");
         std::thread::spawn(move || {
             let _ = ureq_post(&url);
         });
@@ -281,7 +281,7 @@ pub fn build_ui_window(app: Option<&adw::Application>, port: u16) -> adw::Applic
         let _ = &theme_monitors;
         let keep = crate::ui::read_gui_config().keep_streaming;
         if !keep {
-            let url = format!("http://127.0.0.1:{port}/api/disable");
+            let url = format!("http://127.0.0.1:{port}/api/v1/disable");
             let _ = ureq_post(&url);
         }
         glib::Propagation::Proceed
@@ -471,8 +471,9 @@ pub fn fetch_status(port: u16) -> Result<SimpleStatus, Box<dyn std::error::Error
     stream.set_read_timeout(Some(std::time::Duration::from_millis(400)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_millis(400)))?;
 
-    let req =
-        format!("GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    let req = format!(
+        "GET /api/v1/status HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+    );
     stream.write_all(req.as_bytes())?;
 
     let mut buf = [0u8; 8192];

@@ -61,16 +61,31 @@ describe('Theme Service', () => {
       json: async () => mockPalette,
     } as Response);
 
-    const result = await fetchAndApplyTheme('/api/theme');
+    const result = await fetchAndApplyTheme('/api/v1/theme');
     expect(result).toEqual(mockPalette);
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00ffff');
     expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#000000');
   });
 
+  it('handles default apiUrl correctly', async () => {
+    const mockPalette: ThemePalette = {
+      accent: '#00ffff',
+      background: '#000000',
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockPalette,
+    } as Response);
+
+    const result = await fetchAndApplyTheme();
+    expect(result).toEqual(mockPalette);
+  });
+
   it('handles fetch error gracefully without throwing', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 
-    const result = await fetchAndApplyTheme('/api/theme');
+    const result = await fetchAndApplyTheme('/api/v1/theme');
     expect(result).toBeNull();
   });
 
@@ -79,7 +94,7 @@ describe('Theme Service', () => {
       ok: false,
     } as Response);
 
-    const result = await fetchAndApplyTheme('/api/theme');
+    const result = await fetchAndApplyTheme('/api/v1/theme');
     expect(result).toBeNull();
   });
 });

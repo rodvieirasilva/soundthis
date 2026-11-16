@@ -178,7 +178,7 @@ impl Installer {
         let hooks_dir = home.join(".config/omarchy/hooks/theme-set.d");
         if fs::create_dir_all(&hooks_dir).is_ok() {
             let hook_file = hooks_dir.join("soundthis");
-            let hook_content = "#!/usr/bin/env bash\ncurl -s -X POST http://127.0.0.1:9697/api/theme/reload >/dev/null 2>&1 || true\n";
+            let hook_content = "#!/usr/bin/env bash\ncurl -s -X POST http://127.0.0.1:9697/api/v1/theme/reload >/dev/null 2>&1 || true\n";
             let _ = fs::write(&hook_file, hook_content);
             #[cfg(unix)]
             {

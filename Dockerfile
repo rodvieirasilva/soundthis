@@ -7,7 +7,8 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build Rust single binary (headless, no-default-features)
-FROM rust:1-slim-bookworm AS rust-builder
+FROM rust:alpine AS rust-builder
+RUN apk add --no-cache musl-dev build-base
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 # Pre-copy web dist from stage 1 so include_str! succeeds
@@ -21,15 +22,19 @@ COPY pkg ./pkg
 COPY web/src/assets ./web/src/assets
 RUN cargo build --release --no-default-features
 
-# Stage 3: Arch Linux runtime container (Native to Omarchy)
-FROM archlinux:base
+# Stage 3: Alpine Linux runtime container
+FROM alpine:latest
 LABEL maintainer="Rodrigo Vieira <rodvieirasilva@gmail.com>" \
       description="SoundThis - Ultra-low latency desktop audio streaming server for Omarchy"
 
-RUN pacman -Syu --noconfirm --needed \
-    libpulse \
-    ca-certificates \
-    && rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
+RUN apk add --no-cache \
+    pulseaudio-utils \
+    ca-certificates
+
+# Create non-root user and required runtime directories
+RUN adduser -D -u 1000 -G audio soundthis && \
+    mkdir -p /home/soundthis/.config/soundthis /home/soundthis/.config/pulse && \
+    chown -R soundthis:soundthis /home/soundthis
 
 # Copy compiled soundthis binary
 COPY --from=rust-builder /app/target/release/soundthis /usr/bin/soundthis
@@ -38,7 +43,11 @@ COPY --from=rust-builder /app/target/release/soundthis /usr/bin/soundthis
 EXPOSE 9697
 
 # Connect to shared host PipeWire / PulseAudio socket
-ENV PULSE_SERVER=unix:/tmp/pulse/native
+ENV PULSE_SERVER=unix:/tmp/pulse/native \
+    HOME=/home/soundthis
+
+USER soundthis
+WORKDIR /home/soundthis
 
 # Serve audio over HTTP/WebSocket
 ENTRYPOINT ["/usr/bin/soundthis"]

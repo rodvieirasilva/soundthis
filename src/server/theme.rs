@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ThemePalette {
     #[serde(default = "default_mode")]
     pub mode: String,
@@ -205,5 +205,9 @@ bright_foreground = "#111111"
             .unwrap();
         assert!(svg.contains("<svg"));
         assert!(svg.contains("</svg>"));
+
+        // QR code generation fails if payload exceeds max data capacity
+        let huge_url = "a".repeat(10000);
+        assert!(palette.generate_qr_svg(&huge_url).is_err());
     }
 }

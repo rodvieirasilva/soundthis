@@ -113,6 +113,15 @@ async fn test_cli_commands_online() {
             listening: true,
         })
         .await;
+    state
+        .add_client(soundthis::state::ClientInfo {
+            id: "test:2".into(),
+            name: "PausedDevice".into(),
+            ip: "127.0.0.2".into(),
+            connected_at: 200,
+            listening: false,
+        })
+        .await;
     let broadcaster = std::sync::Arc::new(soundthis::audio::AudioBroadcaster::new());
     let config = ServerConfig {
         port,
@@ -140,6 +149,44 @@ async fn test_cli_commands_online() {
     // Test cmd_set_enabled online
     assert!(cli::cmd_set_enabled(&config, true).await.is_ok());
     assert!(cli::cmd_set_enabled(&config, false).await.is_ok());
+
+    // Test cmd_status when disabled
+    assert!(cli::cmd_status(&config).await.is_ok());
+
+    // Test run_with_cli online for subcommands
+    let tmp_cfg =
+        std::env::temp_dir().join(format!("soundthis_cli_online_{}.toml", std::process::id()));
+    let _ = std::fs::write(&tmp_cfg, toml::to_string(&config).unwrap());
+
+    assert!(cli::run_with_cli(Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Status),
+    })
+    .await
+    .is_ok());
+
+    assert!(cli::run_with_cli(Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Toggle),
+    })
+    .await
+    .is_ok());
+
+    assert!(cli::run_with_cli(Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Enable),
+    })
+    .await
+    .is_ok());
+
+    assert!(cli::run_with_cli(Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Disable),
+    })
+    .await
+    .is_ok());
+
+    let _ = std::fs::remove_file(tmp_cfg);
 
     handle.abort();
 }
@@ -188,6 +235,30 @@ async fn test_run_with_cli_subcommands() {
         command: Some(Commands::Open),
     };
     assert!(cli::run_with_cli(cli_open).await.is_ok());
+
+    // Install and Uninstall subcommands via run_with_cli in a temp home
+    let temp_home =
+        std::env::temp_dir().join(format!("soundthis_cli_install_run_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&temp_home);
+    let orig_home = std::env::var("HOME").ok();
+    std::env::set_var("HOME", &temp_home);
+
+    let cli_install = Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Install),
+    };
+    assert!(cli::run_with_cli(cli_install).await.is_ok());
+
+    let cli_uninstall = Cli {
+        config: Some(tmp_cfg.clone()),
+        command: Some(Commands::Uninstall),
+    };
+    assert!(cli::run_with_cli(cli_uninstall).await.is_ok());
+
+    if let Some(h) = orig_home {
+        std::env::set_var("HOME", h);
+    }
+    let _ = std::fs::remove_dir_all(&temp_home);
 
     let _ = std::fs::remove_file(tmp_cfg);
 }

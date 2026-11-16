@@ -38,7 +38,7 @@ fi
 
 PULSE_COOKIE_ARG=()
 if [[ -f "${HOME}/.config/pulse/cookie" ]]; then
-  PULSE_COOKIE_ARG=(-v "${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro")
+  PULSE_COOKIE_ARG=(-v "${HOME}/.config/pulse/cookie:/home/soundthis/.config/pulse/cookie:ro")
 fi
 
 exec $CONTAINER_ENGINE run --rm -it \

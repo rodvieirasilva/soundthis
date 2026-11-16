@@ -143,3 +143,52 @@ fn test_installer_edge_cases_and_uninstall_empty() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_installer_resolve_bin_path_variants() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("soundthis_bin_resolve_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(temp_dir.join(".cargo/bin"));
+    let cargo_bin = temp_dir.join(".cargo/bin/soundthis");
+    std::fs::write(&cargo_bin, b"binary").unwrap();
+
+    let orig_home = std::env::var("HOME").ok();
+    std::env::set_var("HOME", &temp_dir);
+
+    assert_eq!(Installer::resolve_bin_path(), cargo_bin);
+
+    let _ = std::fs::remove_file(&cargo_bin);
+    let _ = std::fs::create_dir_all(temp_dir.join(".local/bin"));
+    let local_bin = temp_dir.join(".local/bin/soundthis");
+    std::fs::write(&local_bin, b"binary").unwrap();
+
+    assert_eq!(Installer::resolve_bin_path(), local_bin);
+
+    let _ = std::fs::remove_file(&local_bin);
+    let fallback = Installer::resolve_bin_path();
+    assert!(!fallback.as_os_str().is_empty());
+
+    if let Some(h) = orig_home {
+        std::env::set_var("HOME", h);
+    }
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_installer_install_and_uninstall_public_api() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("soundthis_install_api_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let orig_home = std::env::var("HOME").ok();
+    std::env::set_var("HOME", &temp_dir);
+
+    assert!(Installer::install().is_ok());
+    assert!(Installer::uninstall().is_ok());
+
+    if let Some(h) = orig_home {
+        std::env::set_var("HOME", h);
+    }
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

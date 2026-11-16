@@ -74,7 +74,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Rust Tests & Coverage (cargo-llvm-cov >= 80%)
-        run: cargo llvm-cov --summary-only
+        run: cargo llvm-cov --all-targets --summary-only
 
       - name: Build Release Binary
         run: cargo build --release
@@ -85,7 +85,7 @@ jobs:
       - name: Arch Linux Package Lifecycle E2E (Container)
         run: ./tests/test-package-e2e.sh --docker
 
-      - name: Build Docker Container (Arch Linux)
+      - name: Build Docker Container (Alpine Linux)
         run: docker build -t soundthis:latest .
 
       - name: Verify Docker Container

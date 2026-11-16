@@ -1,4 +1,5 @@
 pub mod http;
+pub mod openapi;
 pub mod theme;
 pub mod ws;
 
@@ -8,13 +9,15 @@ use crate::error::SoundThisError;
 use crate::state::AppState;
 use axum::{
     http::HeaderValue,
-    routing::{get, post},
+    routing::{any, get, post},
     Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 pub fn build_app(
     state: AppState,
@@ -65,25 +68,58 @@ pub fn build_app(
     let state_with_broadcaster = (state.clone(), broadcaster);
 
     Router::new()
+        // Swagger UI and OpenAPI documentation
+        .merge(
+            SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi::ApiDoc::openapi()),
+        )
+        .route("/openapi.json", get(openapi::handle_openapi_json))
+        .route("/swagger", get(openapi::handle_swagger_redirect))
+        .route("/swagger/", get(openapi::handle_swagger_redirect))
         // Web UI and assets
         .route("/", get(http::handle_index))
         .route("/favicon.svg", get(http::handle_favicon_svg))
         .route("/favicon.ico", get(http::handle_favicon_ico))
         .route("/favicon-{file}", get(http::handle_favicon_fallback))
         .route("/health", get(http::handle_health))
-        // API routes
-        .route("/api/status", get(http::handle_api_status))
-        .route("/api/theme", get(http::handle_api_theme))
-        .route("/api/theme/reload", post(http::handle_api_theme_reload))
-        .route("/api/qr.svg", get(http::handle_api_qr_svg))
-        .route("/api/copy", post(http::handle_api_copy))
+        // Versioned API v1 routes
+        .route("/api/v1/status", get(http::handle_api_status))
+        .route("/api/v1/theme", get(http::handle_api_theme))
+        .route("/api/v1/theme/reload", post(http::handle_api_theme_reload))
+        .route("/api/v1/qr.svg", get(http::handle_api_qr_svg))
+        .route("/api/v1/copy", post(http::handle_api_copy))
         .route(
-            "/api/config/keep_streaming",
+            "/api/v1/config/keep_streaming",
             get(http::handle_api_get_keep_streaming).post(http::handle_api_set_keep_streaming),
         )
-        .route("/api/toggle", post(http::handle_api_toggle))
-        .route("/api/enable", post(http::handle_api_enable))
-        .route("/api/disable", post(http::handle_api_disable))
+        .route("/api/v1/toggle", post(http::handle_api_toggle))
+        .route("/api/v1/enable", post(http::handle_api_enable))
+        .route("/api/v1/disable", post(http::handle_api_disable))
+        // Unversioned API redirects: /api/* -> /api/v1/*
+        .route("/api/status", any(http::handle_redirect_to_v1))
+        .route("/api/theme", any(http::handle_redirect_to_v1))
+        .route("/api/theme/reload", any(http::handle_redirect_to_v1))
+        .route("/api/qr.svg", any(http::handle_redirect_to_v1))
+        .route("/api/copy", any(http::handle_redirect_to_v1))
+        .route(
+            "/api/config/keep_streaming",
+            any(http::handle_redirect_to_v1),
+        )
+        .route("/api/toggle", any(http::handle_redirect_to_v1))
+        .route("/api/enable", any(http::handle_redirect_to_v1))
+        .route("/api/disable", any(http::handle_redirect_to_v1))
+        // Convenience redirects: /v1/* -> /api/v1/*
+        .route("/v1/status", any(http::handle_redirect_to_api_v1))
+        .route("/v1/theme", any(http::handle_redirect_to_api_v1))
+        .route("/v1/theme/reload", any(http::handle_redirect_to_api_v1))
+        .route("/v1/qr.svg", any(http::handle_redirect_to_api_v1))
+        .route("/v1/copy", any(http::handle_redirect_to_api_v1))
+        .route(
+            "/v1/config/keep_streaming",
+            any(http::handle_redirect_to_api_v1),
+        )
+        .route("/v1/toggle", any(http::handle_redirect_to_api_v1))
+        .route("/v1/enable", any(http::handle_redirect_to_api_v1))
+        .route("/v1/disable", any(http::handle_redirect_to_api_v1))
         .with_state(state.clone())
         // WebSocket streaming route
         .route("/ws", get(ws::handle_ws))

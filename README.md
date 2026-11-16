@@ -268,7 +268,7 @@ The `keep_streaming` setting in `[desktop]` dictates the lifecycle of the stream
 
 You can toggle this preference at any time from:
 1. The **"Keep streaming in Omarchy bar"** switch in the native desktop app preferences.
-2. The REST API endpoint: `POST /api/config/keep_streaming` with `{"keep": true|false}` (or `GET /api/config/keep_streaming`).
+2. The REST API endpoint: `POST /api/v1/config/keep_streaming` with `{"keep": true|false}` (or `GET /api/v1/config/keep_streaming`). Legacy `/api/*` requests automatically redirect to `/api/v1/*`.
 3. Directly editing `keep_streaming` in `~/.config/soundthis/config.toml`.
 
 You can also specify a custom configuration file using the `--config` flag:
@@ -317,6 +317,30 @@ soundthis install     # Configure Omarchy desktop entry and bar widget
 soundthis uninstall   # Completely remove plugin and service
 ```
 
+### OpenAPI & Interactive Swagger UI
+
+SoundThis includes built-in interactive OpenAPI 3.1 documentation and Swagger UI served directly by the Rust binary:
+
+- **Interactive Swagger UI**: `http://<LAN_IP>:9697/swagger-ui/` (or `http://localhost:9697/swagger`)
+- **OpenAPI JSON Specifications**: `http://<LAN_IP>:9697/api-docs/openapi.json` and `http://<LAN_IP>:9697/openapi.json`
+
+Inspect endpoints, test streaming toggles, inspect theme color palettes, and query live connected listeners right from your browser.
+
+### Containerized Execution (Docker / Podman)
+
+SoundThis can run inside an Arch Linux runtime container, fully configured for security with a non-root unprivileged user (`soundthis`, UID 1000):
+
+```bash
+# Using the automated container launcher (shares host PipeWire/PulseAudio socket):
+./scripts/docker-run.sh
+
+# Or running directly:
+docker run --rm -it --network host \
+  -e PULSE_SERVER=unix:/tmp/pulse/native \
+  -v "${XDG_RUNTIME_DIR}/pulse/native:/tmp/pulse/native:ro" \
+  soundthis:latest serve
+```
+
 ---
 
 ## Development, Testing & Quality
@@ -361,6 +385,7 @@ For the step-by-step guide to bumping versions, creating multi-architecture GitH
 - **`src/server/`**:
   - `mod.rs`: Server bootstrapping and CORS configuration with support for both HTTP (`axum`) and HTTPS (`axum-server` with `tls-rustls`).
   - `http.rs`: HTTP endpoints and embedded asset delivery.
+  - `openapi.rs`: OpenAPI 3.1 schema specification and Swagger UI routing.
   - `ws.rs`: WebSocket streaming session handling and client identification.
 - **`src/installer/`**: External templates (`systemd/soundthis.service.template`, `plugin/`) and systemd/Omarchy shell management.
 - **`src/ui/`**: Native compiled GTK4 & libadwaita desktop window (`gtk_app.rs`) with built-in GApplication single-instance handling and preferences.

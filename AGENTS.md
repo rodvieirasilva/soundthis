@@ -65,7 +65,8 @@ soundthis/
 │   │   └── ip.rs                  # LAN IP detection for QR/client URLs
 │   └── server/
 │       ├── mod.rs                 # HTTP & HTTPS server runner, TLS config, CORS setup
-│       ├── http.rs                # Axum HTTP routes (/health, /, /favicon.svg, /api/*)
+│       ├── http.rs                # Axum HTTP routes (/health, /, /favicon.svg, /api/v1/*)
+│       ├── openapi.rs             # OpenAPI 3.1 specification and Swagger UI routing
 │       ├── theme.rs               # Omarchy OS theme syncing (colors.toml) and QR code generation
 │       └── ws.rs                  # WebSocket streaming and client identification
 ├── tests/
@@ -135,7 +136,7 @@ soundthis/
 ### E. Protocol & Streaming Efficiency
 - **Initial Connection State**: Browsers connect to the WebSocket endpoint initially in a paused state (`?listen=0`).
 - **Zero Audio While Paused**: WebSocket worker loops must discard broadcast audio chunks when a listener is paused or when broadcasting is disabled. Old audio chunks are not buffered during pause, ensuring instant, lag-free playback upon resume.
-- **Dynamic Telemetry**: The `/api/status` endpoint exposes the server version, protocol, streaming state, and listener states (`listening: true/false`).
+- **Dynamic Telemetry**: The `/api/v1/status` endpoint exposes the server version, protocol, streaming state, and listener states (`listening: true/false`). Legacy unversioned `/api/status` requests are permanently redirected (HTTP 308) to `/api/v1/status`.
 
 ---
 

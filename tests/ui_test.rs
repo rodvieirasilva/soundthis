@@ -59,7 +59,7 @@ fn test_fetch_status_offline() {
 
 #[test]
 fn test_ureq_post_offline() {
-    let res = ureq_post("http://127.0.0.1:59998/api/disable");
+    let res = ureq_post("http://127.0.0.1:59998/api/v1/disable");
     assert!(res.is_err());
 }
 
@@ -72,7 +72,7 @@ async fn test_ui_widget_tree_and_simulation() {
     use axum::routing::{get, post};
     let app = axum::Router::new()
         .route(
-            "/api/status",
+            "/api/v1/status",
             get(|| async {
                 axum::Json(serde_json::json!({
                     "enabled": true,
@@ -81,11 +81,11 @@ async fn test_ui_widget_tree_and_simulation() {
             }),
         )
         .route(
-            "/api/disable",
+            "/api/v1/disable",
             post(|| async { axum::Json(serde_json::json!({"enabled": false})) }),
         )
         .route(
-            "/api/enable",
+            "/api/v1/enable",
             post(|| async { axum::Json(serde_json::json!({"enabled": true})) }),
         );
 
@@ -100,7 +100,7 @@ async fn test_ui_widget_tree_and_simulation() {
     let status_online = fetch_status(port);
     assert!(status_online.is_ok());
     assert!(status_online.unwrap().enabled);
-    assert!(ureq_post(&format!("http://127.0.0.1:{port}/api/enable")).is_ok());
+    assert!(ureq_post(&format!("http://127.0.0.1:{port}/api/v1/enable")).is_ok());
 
     // Verify CSS theme loading on the initialized GTK display (both dark and light)
     let provider = gtk4::CssProvider::new();
@@ -233,6 +233,20 @@ fn test_stop_gui_process_missing_and_invalid() {
     std::fs::write(&tmp, "invalid").unwrap();
     assert!(!stop_gui_process_from(&tmp));
     assert!(!tmp.exists());
+
+    // When PID matches current process PID, stop_gui_process_from should return false
+    std::fs::write(&tmp, std::process::id().to_string()).unwrap();
+    assert!(!stop_gui_process_from(&tmp));
+    let _ = std::fs::remove_file(&tmp);
+}
+
+#[test]
+fn test_is_gui_running_unmatched_process() {
+    let tmp = std::env::temp_dir().join(format!("test_unmatched_pid_{}.pid", std::process::id()));
+    // PID 1 is init/systemd whose cmdline does not contain soundthis/cargo/qml
+    std::fs::write(&tmp, "1").unwrap();
+    assert!(!is_gui_running_from(&tmp));
+    assert!(!tmp.exists());
 }
 
 #[test]
@@ -254,6 +268,18 @@ fn test_is_gui_running_active_test_process() {
 #[test]
 fn test_focus_existing_window_does_not_panic() {
     let _ = focus_existing_window();
+}
+
+#[test]
+fn test_gui_config_json_serialization() {
+    let tmp = std::env::temp_dir().join(format!("soundthis_gui_json_{}.json", std::process::id()));
+    let cfg = GuiConfig {
+        keep_streaming: true,
+    };
+    save_gui_config_to(&tmp, &cfg).unwrap();
+    let loaded = read_gui_config_from(&tmp);
+    assert_eq!(loaded, cfg);
+    let _ = std::fs::remove_file(tmp);
 }
 
 #[test]
@@ -317,4 +343,10 @@ fn test_gui_helpers_and_error_paths() {
         keep_streaming: true,
     };
     assert!(save_gui_config_to(invalid_path, &cfg).is_err());
+
+    // Test get_gui_config_path and read_gui_config
+    let path = get_gui_config_path();
+    assert!(!path.as_os_str().is_empty());
+    let _ = read_gui_config();
+    let _ = save_gui_config(&cfg);
 }

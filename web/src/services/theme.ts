@@ -76,7 +76,7 @@ export function applyTheme(palette: ThemePalette): void {
   }
 }
 
-export async function fetchAndApplyTheme(apiUrl = '/api/theme'): Promise<ThemePalette | null> {
+export async function fetchAndApplyTheme(apiUrl = '/api/v1/theme'): Promise<ThemePalette | null> {
   try {
     const res = await fetch(apiUrl);
     if (!res.ok) return null;

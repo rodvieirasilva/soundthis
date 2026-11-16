@@ -306,10 +306,10 @@ async fn test_e2e_websocket_live_theme_broadcast() {
         _ => panic!("Expected theme text packet"),
     }
 
-    // 2. Trigger /api/theme/reload
+    // 2. Trigger /api/v1/theme/reload
     let client = reqwest::Client::new();
     let res = client
-        .post(format!("http://{addr}/api/theme/reload"))
+        .post(format!("http://{addr}/api/v1/theme/reload"))
         .send()
         .await
         .unwrap();

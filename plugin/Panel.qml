@@ -80,7 +80,7 @@ Panel {
 
   Process {
     id: statusProc
-    command: ["curl", "-fsS", "--max-time", "1", "http://127.0.0.1:9697/api/status"]
+    command: ["curl", "-fsS", "--max-time", "1", "http://127.0.0.1:9697/api/v1/status"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -107,7 +107,7 @@ Panel {
 
   Process {
     id: toggleProc
-    command: ["curl", "-fsS", "-X", "POST", "http://127.0.0.1:9697/api/toggle"]
+    command: ["curl", "-fsS", "-X", "POST", "http://127.0.0.1:9697/api/v1/toggle"]
     onExited: {
       root.refreshStatus()
     }

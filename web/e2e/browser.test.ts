@@ -8,10 +8,11 @@ function resolveSoundThisBin(): string {
   const candidates = [
     path.resolve(process.cwd(), "../target/release/soundthis"),
     path.resolve(process.cwd(), "../target/debug/soundthis"),
-    "soundthis",
-  ];
-  for (const bin of candidates) {
-    if (fs.existsSync(bin)) return bin;
+  ].filter((bin) => fs.existsSync(bin));
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+    return candidates[0];
   }
   return "soundthis";
 }
@@ -312,5 +313,70 @@ test.describe("Browser E2E SoundThis Integration", () => {
     // 3. DOM Nodes must not leak (< 5 node delta)
     const nodeGrowth = Math.abs(sustainedNodes - baselineNodes);
     expect(nodeGrowth).toBeLessThanOrEqual(5);
+  });
+
+  test("should load Swagger UI, navigate redirects, and interactively execute API endpoints", async ({
+    page,
+  }) => {
+    // 1. Test redirect from /swagger to /swagger-ui/
+    await page.goto(`http://127.0.0.1:${testPort}/swagger`);
+    await expect(page).toHaveURL(`http://127.0.0.1:${testPort}/swagger-ui/`);
+
+    // 2. Wait for Swagger UI to render
+    const swaggerContainer = page.locator(".swagger-ui.swagger-container");
+    await expect(swaggerContainer).toBeVisible({ timeout: 10000 });
+
+    const title = swaggerContainer.locator(".title");
+    await expect(title).toContainText("SoundThis API");
+
+    // Helper to find operation by endpoint path in Swagger UI
+    const getOp = (endpoint: string) =>
+      swaggerContainer
+        .locator(".opblock")
+        .filter({ has: page.locator(`[data-path="${endpoint}"]`) })
+        .first();
+
+    // 3. Test interactive execution of GET /health
+    const healthOp = getOp("/health");
+    await expect(healthOp).toBeVisible();
+    await healthOp.locator(".opblock-summary").click();
+    await healthOp.locator(".try-out__btn").click();
+    await healthOp.locator(".execute").click();
+
+    // Verify response 200 OK
+    const healthStatus = healthOp.locator(".live-responses-table tbody .response-col_status");
+    await expect(healthStatus).toContainText("200", { timeout: 8000 });
+    const healthBody = healthOp.locator(".live-responses-table tbody .highlight-code pre");
+    await expect(healthBody).toContainText("OK");
+
+    // 4. Test interactive execution of GET /api/v1/status
+    const statusOp = getOp("/api/v1/status");
+    await expect(statusOp).toBeVisible();
+    await statusOp.locator(".opblock-summary").click();
+    await statusOp.locator(".try-out__btn").click();
+    await statusOp.locator(".execute").click();
+
+    const statusStatus = statusOp.locator(".live-responses-table tbody .response-col_status");
+    await expect(statusStatus).toContainText("200", { timeout: 8000 });
+    const statusBody = statusOp.locator(".live-responses-table tbody .highlight-code pre");
+    await expect(statusBody).toContainText('"online": true');
+
+    // 5. Test interactive execution of POST /api/v1/toggle
+    const toggleOp = getOp("/api/v1/toggle");
+    await expect(toggleOp).toBeVisible();
+    await toggleOp.locator(".opblock-summary").click();
+    await toggleOp.locator(".try-out__btn").click();
+    await toggleOp.locator(".execute").click();
+
+    const toggleStatus = toggleOp.locator(".live-responses-table tbody .response-col_status");
+    await expect(toggleStatus).toContainText("200", { timeout: 8000 });
+    const toggleBody = toggleOp.locator(".live-responses-table tbody .highlight-code pre");
+    await expect(toggleBody).toContainText('"ok": true');
+    // Enabled should have toggled to false
+    await expect(toggleBody).toContainText('"enabled": false');
+
+    // Toggle back to enabled
+    await toggleOp.locator(".execute").click();
+    await expect(toggleBody).toContainText('"enabled": true');
   });
 });

@@ -199,7 +199,10 @@ pub async fn cmd_status(config: &ServerConfig) -> Result<(), Box<dyn std::error:
     let scheme = config.protocol.scheme();
     let client = make_http_client();
     let res = client
-        .get(format!("{scheme}://127.0.0.1:{}/api/status", config.port))
+        .get(format!(
+            "{scheme}://127.0.0.1:{}/api/v1/status",
+            config.port
+        ))
         .send()
         .await;
 
@@ -250,7 +253,10 @@ pub async fn cmd_toggle(config: &ServerConfig) -> Result<(), Box<dyn std::error:
     let scheme = config.protocol.scheme();
     let client = make_http_client();
     let res = client
-        .post(format!("{scheme}://127.0.0.1:{}/api/toggle", config.port))
+        .post(format!(
+            "{scheme}://127.0.0.1:{}/api/v1/toggle",
+            config.port
+        ))
         .send()
         .await;
 
@@ -287,7 +293,7 @@ pub async fn cmd_set_enabled(
     let client = make_http_client();
     let res = client
         .post(format!(
-            "{scheme}://127.0.0.1:{}/api/{endpoint}",
+            "{scheme}://127.0.0.1:{}/api/v1/{endpoint}",
             config.port
         ))
         .send()
@@ -348,7 +354,10 @@ pub async fn cmd_stop(config: &ServerConfig) -> Result<(), Box<dyn std::error::E
     let scheme = config.protocol.scheme();
     let client = make_http_client();
     let _ = client
-        .post(format!("{scheme}://127.0.0.1:{}/api/disable", config.port))
+        .post(format!(
+            "{scheme}://127.0.0.1:{}/api/v1/disable",
+            config.port
+        ))
         .send()
         .await;
 

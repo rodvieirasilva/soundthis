@@ -48,6 +48,20 @@ struct ClientMessage {
     paused: Option<bool>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/ws",
+    tag = "Streaming",
+    summary = "WebSocket Audio & Telemetry Stream",
+    description = "High-performance WebSocket connection for binary 48kHz stereo 16-bit PCM audio chunks and JSON telemetry messages.",
+    params(
+        ("listen" = Option<String>, Query, description = "Initial listening state (e.g. '0' to connect paused, '1' to listen immediately)"),
+        ("paused" = Option<String>, Query, description = "Initial pause state (e.g. 'true' to connect paused)")
+    ),
+    responses(
+        (status = 101, description = "Protocol switch to WebSocket binary stream")
+    )
+)]
 pub async fn handle_ws(
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,

@@ -5,13 +5,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ClientInfo {
+    #[schema(example = "192.168.1.50:48291")]
     pub id: String,
+    #[schema(example = "Device")]
     pub name: String,
+    #[schema(example = "192.168.1.50")]
     pub ip: String,
+    #[schema(example = 1710000000)]
     pub connected_at: u64,
     #[serde(default = "default_listening")]
+    #[schema(example = true)]
     pub listening: bool,
 }
 
@@ -29,14 +34,21 @@ pub struct AppState {
     pub protocol: Protocol,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct StatusResponse {
+    #[schema(example = true)]
     pub online: bool,
+    #[schema(example = true)]
     pub enabled: bool,
+    #[schema(example = "0.5.0")]
     pub version: &'static str,
+    #[schema(example = "http")]
     pub protocol: &'static str,
+    #[schema(example = 9697)]
     pub port: u16,
+    #[schema(example = "192.168.1.100")]
     pub lan_ip: String,
+    #[schema(example = "http://192.168.1.100:9697")]
     pub url: String,
     pub clients: Vec<ClientInfo>,
 }
