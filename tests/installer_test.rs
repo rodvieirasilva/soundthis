@@ -83,6 +83,7 @@ fn test_installer_install_and_uninstall_lifecycle() {
 
 #[test]
 fn test_installer_helpers_and_systemd() {
+    std::env::set_var("SOUNDTHIS_TEST", "1");
     let home = Installer::home_dir();
     assert!(!home.as_os_str().is_empty());
 
@@ -176,6 +177,7 @@ fn test_installer_resolve_bin_path_variants() {
 
 #[test]
 fn test_installer_install_and_uninstall_public_api() {
+    std::env::set_var("SOUNDTHIS_TEST", "1");
     let temp_dir =
         std::env::temp_dir().join(format!("soundthis_install_api_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&temp_dir);

@@ -100,5 +100,15 @@ jobs:
 
       - name: Browser Integration Tests (Playwright E2E)
         run: |
+          pulseaudio --check || pulseaudio -D --exit-idle-time=-1 || true
+          pactl load-module module-null-sink sink_name=dummy || true
           cd web
           npm run test:e2e
+
+      - name: Upload Playwright Test Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: web/test-results/
+          retention-days: 7

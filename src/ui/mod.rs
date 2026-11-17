@@ -87,10 +87,12 @@ pub fn copy_to_clipboard(text: &str) -> bool {
 
 pub fn get_gui_pid_file() -> PathBuf {
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir).join("soundthis_gui.pid")
-    } else {
-        std::env::temp_dir().join("soundthis_gui.pid")
+        let p = PathBuf::from(runtime_dir);
+        if p.is_dir() {
+            return p.join("soundthis_gui.pid");
+        }
     }
+    std::env::temp_dir().join("soundthis_gui.pid")
 }
 
 pub fn is_gui_running() -> bool {

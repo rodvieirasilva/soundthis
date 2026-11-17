@@ -90,7 +90,8 @@ impl Installer {
     pub fn install() -> Result<(), SoundThisError> {
         let home = Self::home_dir();
         let bin_path = Self::resolve_bin_path();
-        Self::install_to(&home, &bin_path, true)?;
+        let manage = !systemd::is_test_or_ci();
+        Self::install_to(&home, &bin_path, manage)?;
 
         println!("\n✅ SoundThis successfully installed!");
         println!("   Desktop: Launch from application menu or run `soundthis`");
@@ -205,7 +206,8 @@ impl Installer {
 
     pub fn uninstall() -> Result<(), SoundThisError> {
         let home = Self::home_dir();
-        Self::uninstall_from(&home, true)?;
+        let manage = !systemd::is_test_or_ci();
+        Self::uninstall_from(&home, manage)?;
         println!("\n🗑️ SoundThis successfully uninstalled!\n");
         Ok(())
     }

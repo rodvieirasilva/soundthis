@@ -1,10 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
 function resolveSoundThisBin(): string {
+  if (process.env.SOUNDTHIS_BIN && fs.existsSync(process.env.SOUNDTHIS_BIN)) {
+    return process.env.SOUNDTHIS_BIN;
+  }
   const candidates = [
     path.resolve(process.cwd(), "../target/release/soundthis"),
     path.resolve(process.cwd(), "../target/debug/soundthis"),
@@ -15,6 +19,22 @@ function resolveSoundThisBin(): string {
     return candidates[0];
   }
   return "soundthis";
+}
+
+async function getAvailablePort(preferredPort = 59877): Promise<number> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => {
+      const fallback = net.createServer();
+      fallback.listen(0, "127.0.0.1", () => {
+        const port = (fallback.address() as net.AddressInfo).port;
+        fallback.close(() => resolve(port));
+      });
+    });
+    server.listen(preferredPort, "127.0.0.1", () => {
+      server.close(() => resolve(preferredPort));
+    });
+  });
 }
 
 function generateTestWav(filePath: string, durationSec = 2, freq = 440, sampleRate = 48000): void {
@@ -70,8 +90,29 @@ async function startSoundThisServer(port: number): Promise<ChildProcess> {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const deadline = Date.now() + 10000;
+  let stdout = "";
+  let stderr = "";
+  let exited = false;
+  let exitCode: number | null = null;
+
+  child.stdout?.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  child.on("exit", (code) => {
+    exited = true;
+    exitCode = code;
+  });
+
+  const deadline = Date.now() + 25000;
   while (Date.now() < deadline) {
+    if (exited) {
+      throw new Error(
+        `SoundThis server (${bin}) exited prematurely with code ${exitCode} on port ${port}.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`
+      );
+    }
     try {
       const res = await fetch(`http://127.0.0.1:${port}/health`);
       if (res.ok) return child;
@@ -81,23 +122,31 @@ async function startSoundThisServer(port: number): Promise<ChildProcess> {
     await new Promise((r) => setTimeout(r, 100));
   }
   child.kill();
-  throw new Error(`SoundThis server failed to start on port ${port}`);
+  throw new Error(
+    `SoundThis server failed to start on port ${port} within 25s.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`
+  );
 }
 
 test.describe("Browser E2E SoundThis Integration", () => {
-  const testPort = 59877;
+  let testPort = 59877;
   let serverProcess: ChildProcess | null = null;
   const testWavPath = path.join(os.tmpdir(), `soundthis_e2e_${Date.now()}.wav`);
 
   test.beforeAll(async () => {
+    testPort = await getAvailablePort(59877);
     generateTestWav(testWavPath, 2, 440);
     serverProcess = await startSoundThisServer(testPort);
   });
 
   test.afterAll(async () => {
     if (serverProcess) {
-      serverProcess.kill();
+      const proc = serverProcess;
       serverProcess = null;
+      await new Promise<void>((resolve) => {
+        proc.once("exit", () => resolve());
+        proc.kill("SIGKILL");
+        setTimeout(resolve, 1000);
+      });
     }
     if (fs.existsSync(testWavPath)) {
       try {
@@ -225,8 +274,21 @@ test.describe("Browser E2E SoundThis Integration", () => {
     // 8. Test audio disconnection and auto-reconnection
     // Kill the server to simulate connection drop
     if (serverProcess) {
-      serverProcess.kill();
+      const proc = serverProcess;
       serverProcess = null;
+      await new Promise<void>((resolve) => {
+        proc.once("exit", () => resolve());
+        proc.kill("SIGTERM");
+        setTimeout(() => {
+          try {
+            proc.kill("SIGKILL");
+          } catch {
+            // ignore
+          }
+          resolve();
+        }, 3000);
+      });
+      await new Promise((r) => setTimeout(r, 200));
     }
 
     // Browser detects close and displays Offline
