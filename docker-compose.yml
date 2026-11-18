@@ -12,5 +12,11 @@ services:
       # Mount host PipeWire / PulseAudio socket for desktop audio capture
       - ${XDG_RUNTIME_DIR:-/run/user/1000}/pulse/native:/tmp/pulse/native:ro
       # Optional PulseAudio cookie if authentication is enabled
-      - ${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro
+      - ${HOME}/.config/pulse/cookie:/home/soundthis/.config/pulse/cookie:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9697/health || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
