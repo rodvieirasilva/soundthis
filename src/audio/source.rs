@@ -62,7 +62,7 @@ impl ParecAudioSource {
             match Command::new("parec")
                 .args(*args)
                 .stdout(Stdio::piped())
-                .stderr(Stdio::null())
+                .stderr(Stdio::piped())
                 .spawn()
             {
                 Ok(child) => return Ok(child),
@@ -86,6 +86,17 @@ impl AudioSource for ParecAudioSource {
         let mut stdout = child.stdout.take().ok_or_else(|| {
             SoundThisError::AudioCapture("Failed to capture stdout of parec".into())
         })?;
+
+        if let Some(mut err_reader) = child.stderr.take() {
+            tokio::spawn(async move {
+                let mut err_buf = String::new();
+                let _ = err_reader.read_to_string(&mut err_buf).await;
+                let trimmed = err_buf.trim();
+                if !trimmed.is_empty() {
+                    tracing::debug!("parec capture output: {trimmed}");
+                }
+            });
+        }
 
         let (data_tx, data_rx) = mpsc::channel(64);
         let (stop_tx, mut stop_rx) = mpsc::channel(1);

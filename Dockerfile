@@ -48,6 +48,10 @@ EXPOSE 9697
 ENV PULSE_SERVER=unix:/tmp/pulse/native \
     HOME=/home/soundthis
 
+# Container health check using Alpine's built-in wget
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:9697/health || exit 1
+
 USER soundthis
 WORKDIR /home/soundthis
 

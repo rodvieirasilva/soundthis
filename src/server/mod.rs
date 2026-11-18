@@ -95,31 +95,9 @@ pub fn build_app(
         .route("/api/v1/enable", post(http::handle_api_enable))
         .route("/api/v1/disable", post(http::handle_api_disable))
         // Unversioned API redirects: /api/* -> /api/v1/*
-        .route("/api/status", any(http::handle_redirect_to_v1))
-        .route("/api/theme", any(http::handle_redirect_to_v1))
-        .route("/api/theme/reload", any(http::handle_redirect_to_v1))
-        .route("/api/qr.svg", any(http::handle_redirect_to_v1))
-        .route("/api/copy", any(http::handle_redirect_to_v1))
-        .route(
-            "/api/config/keep_streaming",
-            any(http::handle_redirect_to_v1),
-        )
-        .route("/api/toggle", any(http::handle_redirect_to_v1))
-        .route("/api/enable", any(http::handle_redirect_to_v1))
-        .route("/api/disable", any(http::handle_redirect_to_v1))
+        .route("/api/{*path}", any(http::handle_redirect_to_v1))
         // Convenience redirects: /v1/* -> /api/v1/*
-        .route("/v1/status", any(http::handle_redirect_to_api_v1))
-        .route("/v1/theme", any(http::handle_redirect_to_api_v1))
-        .route("/v1/theme/reload", any(http::handle_redirect_to_api_v1))
-        .route("/v1/qr.svg", any(http::handle_redirect_to_api_v1))
-        .route("/v1/copy", any(http::handle_redirect_to_api_v1))
-        .route(
-            "/v1/config/keep_streaming",
-            any(http::handle_redirect_to_api_v1),
-        )
-        .route("/v1/toggle", any(http::handle_redirect_to_api_v1))
-        .route("/v1/enable", any(http::handle_redirect_to_api_v1))
-        .route("/v1/disable", any(http::handle_redirect_to_api_v1))
+        .route("/v1/{*path}", any(http::handle_redirect_to_api_v1))
         .with_state(state.clone())
         // WebSocket streaming route
         .route("/ws", get(ws::handle_ws))

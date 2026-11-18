@@ -401,6 +401,17 @@ pub async fn handle_api_set_keep_streaming(
 pub async fn handle_redirect_to_v1(uri: axum::http::Uri) -> impl IntoResponse {
     let path = uri.path();
     let subpath = path.strip_prefix("/api/").unwrap_or("");
+    if subpath.starts_with("v1/") || subpath == "v1" {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                HeaderValue::from_static("text/plain"),
+            )],
+            "Not Found",
+        )
+            .into_response();
+    }
     let target = if let Some(query) = uri.query() {
         format!("/api/v1/{subpath}?{query}")
     } else {
@@ -410,6 +421,7 @@ pub async fn handle_redirect_to_v1(uri: axum::http::Uri) -> impl IntoResponse {
         axum::http::StatusCode::PERMANENT_REDIRECT,
         [(axum::http::header::LOCATION, target)],
     )
+        .into_response()
 }
 
 /// Redirects /v1/* requests without /api prefix to /api/v1/* preserving method and query string.

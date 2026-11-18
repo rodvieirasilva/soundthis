@@ -61,12 +61,13 @@ mise run coverage
 
 ## Step 2: Version Bumping Checklist
 
-A new version requires updating the version string across **8 coordinated files**:
+A new version requires updating the version string across coordinated files:
 
 | File | Location | Change |
 |---|---|---|
 | `Cargo.toml` | `[package] version` | Update to `"X.Y.Z"` |
 | `Cargo.lock` | Root package entry | Run `cargo check` to update |
+| `src/state.rs` | `StatusResponse` OpenAPI schema | Update `#[schema(example = "X.Y.Z")]` |
 | `web/package.json` | `"version"` | Update to `"X.Y.Z"` |
 | `web/index.html` | `<meta name="version">` | Update `content="vX.Y.Z"` |
 | `plugin/manifest.json` | `"version"` | Update to `"X.Y.Z"` |
