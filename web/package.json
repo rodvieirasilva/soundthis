@@ -14,7 +14,7 @@
     "lint": "eslint 'src/**/*.{ts,tsx}'"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@typescript-eslint/eslint-plugin": "^8.72.2",
     "@typescript-eslint/parser": "^8.72.2",
     "@vitest/coverage-v8": "^5.1.0",
