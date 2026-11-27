@@ -220,3 +220,15 @@ Key rules for release execution:
 - **Pinned Checksum Recording**: Download release tarball checksums from GitHub Releases and pin them in `soundthis/pkg/PKGBUILD`.
 - **Upstream Omarchy Packaging PR**: Update or open the PR on `omacom/omarchy-pkgs` (`pkgbuilds/soundthis/PKGBUILD`), verify locally with `makepkg -C -c -f --nodeps`, and include the upstream repository link in the PR description.
 
+
+---
+
+## Secret Scanning (Pre-Commit Gate)
+
+Before committing or pushing, always run:
+
+```bash
+mise run secrets
+```
+
+Ensure zero leaked credentials or secrets (`gitleaks`) are present in the workspace or git history.
