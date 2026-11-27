@@ -157,3 +157,7 @@ run = "systemctl --user restart soundthis"
 [tasks."service:status"]
 description = "Check systemd user service status for soundthis"
 run = "systemctl --user status soundthis"
+
+[tasks.secrets]
+description = "Scan git history and workspace for leaked credentials with gitleaks"
+run = "gitleaks git --no-banner --redact"
